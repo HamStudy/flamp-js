@@ -1,0 +1,36 @@
+{
+  "name": "@hamstudy/flamp",
+  "version": "1.0.0-rc.1",
+  "author": "HamStudy.org LLC",
+  "license": "SEE LICENSE IN LICENSE",
+  "description": "",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p .",
+    "clean": "rm -rf dist/",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HamStudy/flamp-js.git"
+  },
+  "keywords": [
+    "amp",
+    "flamp"
+  ],
+  "bugs": {
+    "url": "https://github.com/HamStudy/flamp-js/issues"
+  },
+  "homepage": "https://github.com/HamStudy/flamp-js#readme",
+  "dependencies": {
+    "moment": "~2.22.2"
+  },
+  "devDependencies": {
+    "typescript": "~3.2.2"
+  },
+  "files": [
+    "dist/",
+    "typings-local/"
+  ]
+}
