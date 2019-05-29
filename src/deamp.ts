@@ -104,7 +104,7 @@ export class File {
     }
     this.blocks.push(inBlock);
     let contentLength = this.getDataBlocks().reduce((s, b) => s += b.data.length, 0)
-    return contentLength === this.size;
+    return this.size !== (void 0) && contentLength === this.size;
   }
   getBlocks() {
     return this.blocks;
