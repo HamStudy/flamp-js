@@ -8,10 +8,12 @@
 // • Javascript Implementation by KV9G, Michael Stufflebeam cpuchip@gmail.com, 29 June 2018
 //
 
-import { crc16 as crc16JS } from './crc16';
 import moment from 'moment';
+import { crc16 as crc16JS } from './crc16';
 
 let crc16 = crc16JS;
+
+export const MODIFIED_TIME_FORMAT = "YYYYMMDDHHmmss";
 
 export enum LTypes {
   FILE = "FILE",
@@ -149,10 +151,10 @@ export class Amp {
   }
   getFormattedDate() {
     if (this.fileModifiedTime) {
-      return moment(this.fileModifiedTime).format("YYYYMMDDHHmmss");
+      return moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT);
     }
     // Use current time if no file time.
-    return moment().format("YYYYMMDDHHmmss");
+    return moment().format(MODIFIED_TIME_FORMAT);
   }
   buildHashString(chunkOrHtype?: string) {
     let hash = this.headerStringHash;

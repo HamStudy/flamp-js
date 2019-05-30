@@ -10,9 +10,11 @@
 
 // tslint:disable:max-classes-per-file
 
+import moment from 'moment';
 import { crc16 as crc16JS } from './crc16';
-import { HTypes, LTypes } from './amp';
+import { HTypes, LTypes, MODIFIED_TIME_FORMAT } from './amp';
 
+(window as any).moment = moment;
 
 let crc16 = crc16JS;
 
@@ -68,6 +70,7 @@ export class File {
   name?: string;
   size?: number;
   hash?: string;
+  modified?: Date;
   constructor(firstBlock: Block) {
     this.hash = firstBlock.hash;
     this.addBlock(firstBlock);
@@ -91,7 +94,8 @@ export class File {
   addBlock(inBlock: Block): boolean {
     switch (inBlock.ltype) {
       case LTypes.FILE:
-        this.name = inBlock.data.split(':')[1];
+        this.name = inBlock.data.substr(15);
+        this.modified = moment(inBlock.data.substr(0, 14), MODIFIED_TIME_FORMAT).toDate();
         break;
       case LTypes.ID:
         this.fromCallsign = inBlock.data;
@@ -102,7 +106,9 @@ export class File {
       default:
         break;
     }
-    this.blocks.push(inBlock);
+    if (!this.blocks.find(b => b.ltype === inBlock.ltype && b.checksum === inBlock.checksum)) {
+      this.blocks.push(inBlock);
+    }
     let contentLength = this.getDataBlocks().reduce((s, b) => s += b.data.length, 0)
     return this.size !== (void 0) && contentLength === this.size;
   }
