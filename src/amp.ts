@@ -43,8 +43,18 @@ export enum HTypes {
   EOF = "EOF",
   EOT = "EOT",
 }
+export enum BaseEncode {
+  b64 = 'base64',
+  b91 = 'base91',
+  // b128 = 'base128',
+  // b256 = 'base256',
+}
+export enum CompressionType {
+  LZMA = 'LZMA',
+}
 export interface IOptions {
-  compression?: 'LZMA' | false,
+  compression?: CompressionType | false,
+  base?: BaseEncode,
   fromCallsign?: string,
   toCallsign?: string,
   filename: string,
@@ -64,8 +74,8 @@ export class Amp {
   private PROGRAM = "JSAMP";
   private VERSION = "0.0.1";
 
-  private base: ''|'base64'|'base91' = "";
-  private compression: 'LZMA' | false = false;
+  private base: '' | BaseEncode = "";
+  private compression: CompressionType | false = false;
   private blocks: any[] = [];
   private packagedBlocks: any[] = [];
   private prefixBlocks: any[] = [];
@@ -86,6 +96,9 @@ export class Amp {
     this.fileModifiedTime = opts.fileModifiedTime;
     this.blkSize = opts.blkSize;
     this.compression = opts.compression || false;
+    if (opts.base) {
+      this.setBase(opts.base);
+    }
     /*
     //Type checking the input buffer:
     if (typeof inputBuffer != "object") {
@@ -141,7 +154,7 @@ export class Amp {
    * The base to use for transmitting the data, if any
    * @param base base64 or base91
    */
-  setBase(base: 'base64'|'base91') {
+  setBase(base: '' | BaseEncode) {
     this.base = base;
   }
 
@@ -187,11 +200,11 @@ export class Amp {
     let needsBase = hasNotPrintable(actualBuffer);
     if (needsBase && !this.base) {
       // For our purposes we're forcing some base conversion if there are unprintable characters
-      this.base = 'base91';
+      this.base = BaseEncode.b91;
     }
 
     // Apply compression if any
-    if (this.compression === 'LZMA') {
+    if (this.compression === CompressionType.LZMA) {
       let newBuffer = lzmaCompressedPrefix;
       newBuffer += lzma.encodeSync(actualBuffer, 2);
       if (newBuffer.length < actualBuffer.length - 200) {
@@ -200,17 +213,17 @@ export class Amp {
       }
       if (!this.base) {
         // If we compreessed then we need to base encode it
-        this.base = 'base91';
+        this.base = BaseEncode.b91;
       }
     }
 
     // Apply base64 or base91 encoding here
     if (this.base) {
       switch (this.base) {
-        case "base64":
+        case BaseEncode.b64:
           actualBuffer = `[b64:start]${base64.encode(actualBuffer)}[b64:end]`;
           break;
-        case "base91":
+        case BaseEncode.b91:
           actualBuffer = `[b91:start]${base91.encode(actualBuffer)}[b91:end]`;
           break;
         default:
