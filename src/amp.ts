@@ -16,6 +16,7 @@ import * as lzma from './lzma';
 
 let crc16 = crc16JS;
 
+export const lzmaCompressedPrefix = '\u0001LZMA';
 export const MODIFIED_TIME_FORMAT = "YYYYMMDDHHmmss";
 
 const unprintableRegex = /[^ -~\n\r]+/;
@@ -42,6 +43,7 @@ export enum HTypes {
   EOT = "EOT",
 }
 export interface IOptions {
+  compression?: 'LZMA' | false,
   fromCallsign?: string,
   toCallsign?: string,
   filename: string,
@@ -62,7 +64,7 @@ export class Amp {
   private VERSION = "0.0.1";
 
   private base: ''|'base64'|'base91' = "";
-  private compression: string | false = false;
+  private compression: 'LZMA' | false = false;
   private blocks: any[] = [];
   private packagedBlocks: any[] = [];
   private prefixBlocks: any[] = [];
@@ -75,20 +77,14 @@ export class Amp {
   private receivedFiles: any = {};
 
   constructor(
-    opts: {
-      fromCallsign?: string,
-      toCallsign?: string,
-      filename: string,
-      fileModifiedTime: Date,
-      inputBuffer: string,
-      blkSize: number,
-    },
+    opts: IOptions,
   ) {
     this.fromCallsign = opts.fromCallsign || null;
     this.toCallsign = opts.toCallsign || null;
     this.filename = opts.filename;
     this.fileModifiedTime = opts.fileModifiedTime;
     this.blkSize = opts.blkSize;
+    this.compression = opts.compression || false;
     /*
     //Type checking the input buffer:
     if (typeof inputBuffer != "object") {
@@ -194,8 +190,8 @@ export class Amp {
     }
 
     // Apply compression if any
-    if (this.compression) {
-      let newBuffer = "\1LZMA";
+    if (this.compression === 'LZMA') {
+      let newBuffer = lzmaCompressedPrefix;
       newBuffer += lzma.encodeSync(actualBuffer, 2);
       if (newBuffer.length < actualBuffer.length - 200) {
         // If compression doesn't save us at least 200 bytes it's not worth while

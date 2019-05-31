@@ -12,7 +12,7 @@
 
 import moment from 'moment';
 import { crc16 as crc16JS } from './crc16';
-import { HTypes, LTypes, MODIFIED_TIME_FORMAT } from './amp';
+import { HTypes, LTypes, MODIFIED_TIME_FORMAT, lzmaCompressedPrefix } from './amp';
 
 import  *  as lzma from './lzma';
 
@@ -105,7 +105,7 @@ export class File {
     if (content.startsWith('[b') && content.endsWith(':end]')) {
       let endOfStart = content.indexOf(']') + 1;
       let tag = content.substring(0, endOfStart);
-      content = content.substr(endOfStart, content.lastIndexOf('['));
+      content = content.substring(endOfStart, content.lastIndexOf('['));
       switch(tag) {
         case '[b64:start]':
           content = atob(content);
@@ -115,8 +115,8 @@ export class File {
           break;
       }
     }
-    if (content.startsWith("\1LZMA")) {
-      let lzmaContent = content.substring("\1LZMA".length);
+    if (content.startsWith(lzmaCompressedPrefix)) {
+      let lzmaContent = content.substring(lzmaCompressedPrefix.length);
       content = lzma.decodeSync(lzmaContent);
     }
     return content;
