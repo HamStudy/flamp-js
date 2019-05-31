@@ -18,12 +18,61 @@ import  *  as lzma from './lzma';
 
 import * as base91 from './base91';
 import * as base64 from './base64';
+import { TypedEvent } from './TypedEvent';
 
 (window as any).moment = moment;
 
 let crc16 = crc16JS;
 
-// Apply startsWith / endsWith polyfills
+export interface NewFileEvent {
+  /** This is the only thing guaranteed on this event */
+  hash: string;
+}
+
+/**
+ * Fired every time a new block is received;
+ * Fields which aren't known will be undefined.
+ * If you don't have filename or blockCount then
+ * the header block(s) haven't been received yet
+ * or were missed
+ */
+export interface FileUpdateEvent {
+  hash: string;
+  /** The filename, if we know it */
+  filename?: string;
+  /** An array of block numbers which we haven't seen yet (if known) */
+  blocksNeeded?: number[];
+  /** 
+   * An array of block numbers we've seen; this is knowable even 
+   * if we don't know how many there are total, so we're including
+   * it. Until we have a valid "SIZE" record we can't say how many
+   * there are overall, but we can start collecting information about it
+   */
+  blocksSeen?: number[];
+  /** The total number of blocks expected (if known) */
+  blockCount?: number;
+  /** The size of each block (if known) */
+  blockSize?: number;
+  /** The size of the file (if known) */
+  fileSize?: number;
+}
+
+/**
+ * Fired when a file is complete and ready to
+ * read. In order for this to fire we need to receive:
+ *   * The filename (FILE record)
+ *   * The file size (SIZE record)
+ *   * All data blocks
+ * 
+ * After you have processed the file you should call
+ * deleteFile(hash) to free the memory used by the file
+ */
+export interface FileCompleteEvent {
+  filename: string;
+  hash: string;
+}
+
+// Apply startsWith / endsWith polyfills if needed; this is a browser after all =]
 (function (sp) {
 
     if (!sp.startsWith)
@@ -87,17 +136,45 @@ export class Block { // Protocol Block
 
 export class File {
   fromCallsign: string | null = null;
-  blocks: Block[] = [];
+  headerBlocks: Block[] = [];
+  dataBlock: {[blockNum: number]: Block|undefined} = {};
   name?: string;
   size?: number;
-  hash?: string;
+  blockCount?: number;
+  blockSize?: number;
+  hash: string;
   modified?: Date;
   constructor(firstBlock: Block) {
     this.hash = firstBlock.hash;
     this.addBlock(firstBlock);
   }
+  getOrderedDataBlocks() {
+    if (!this.blockCount) {
+      throw new Error("Missing file header");
+    }
+    // Blocks are ordered 1 .. blockCount and we may be missing some
+    let orderedBlocks = [...Array(this.blockCount).keys()].map(i => this.dataBlock[i+1]);
+
+    return orderedBlocks;
+  }
+  getNeededBlocks() : number[] {
+    let blocks = this.getOrderedDataBlocks();
+
+    return Object.keys(blocks).map(b => (blocks[Number(b)] ? null : b)).filter(b => !b) as any;
+  }
+  getRawContent() {
+    if (!this.blockCount) {
+      throw new Error("Missing file header");
+    }
+    let blocks = this.getOrderedDataBlocks();
+    if (blocks.some(b => !b)) {
+      // We're missing one or more blocks!
+      throw new Error("Can't get content when we are missing blocks");
+    }
+    return (<Block[]>blocks).map(b => b.data).join('');
+  }
   getContent() {
-    let content = this.getDataBlocks().map((b) => b.data).join('');
+    let content = this.getRawContent();
     if (content.length !== this.size) {
       console.error('File size is not correct', content.length, this.size);
       return null;
@@ -126,11 +203,25 @@ export class File {
     let content = this.getContent();
     return new Blob([content as any], {type: 'text/plain'});
   }
-  getBody() {
-    let content = this.getContent();
-    return content;
+
+  getUpdateRecord() : FileUpdateEvent {
+    return {
+      hash: this.hash,
+      filename: this.name,
+      blockCount: this.blockCount,
+      blockSize: this.blockSize,
+      fileSize: this.size,
+      blocksSeen: Object.keys(this.dataBlock).map(n => Number(n)),
+      blocksNeeded: this.blockSize ? this.getNeededBlocks() : void 0,
+    };
   }
+  /**
+   * Adds a received block to the file; returns true if the block
+   * is new (has not been received already for this file)
+   * @param inBlock 
+   */
   addBlock(inBlock: Block): boolean {
+    let isNew = false;
     switch (inBlock.ltype) {
       case LTypes.FILE:
         this.name = inBlock.data.substr(15);
@@ -140,22 +231,42 @@ export class File {
         this.fromCallsign = inBlock.data;
         break;
       case LTypes.SIZE:
-        this.size = Number(inBlock.data.split(' ')[0]);
+        let pieces = inBlock.data.split(' ').map(v => parseInt(v, 10));
+        this.size = pieces[0];
+        this.blockCount = pieces[1];
+        this.blockSize = pieces[2];
         break;
+      case LTypes.DATA:
+        return this.addDataBlock(inBlock);
       default:
         break;
     }
-    if (!this.blocks.find(b => b.ltype === inBlock.ltype && b.checksum === inBlock.checksum)) {
-      this.blocks.push(inBlock);
+    if (!this.headerBlocks.find(b => b.ltype === inBlock.ltype && b.checksum === inBlock.checksum)) {
+      this.headerBlocks.push(inBlock);
+      return true;
     }
-    let contentLength = this.getDataBlocks().reduce((s, b) => s += b.data.length, 0)
-    return this.size !== (void 0) && contentLength === this.size;
+    return false;
   }
-  getBlocks() {
-    return this.blocks;
+  addDataBlock(inBlock: Block): boolean {
+    let blockNum = inBlock.blockNum as number;
+    if (!this.dataBlock[blockNum]) {
+      this.dataBlock[blockNum] = inBlock;
+      return true;
+    }
+
+    return false;
   }
-  getDataBlocks() {
-    return this.blocks.filter((block) => block.ltype === LTypes.DATA);
+
+  isComplete() : boolean {
+    if (!this.name || !this.blockCount) {
+      return false
+    }
+    try {
+      let rawContent = this.getRawContent();
+      return rawContent.length === this.size;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -163,31 +274,19 @@ export interface Files {
   [K: string]: File;
 }
 
-export type ReceivedFileCallback = (file: File) => void;
-
 export class Deamp {
   private PROGRAM = "JSAMP";
   private VERSION = "0.0.1";
 
   // Fields used in receiving.
 
+  public newFileEvent = new TypedEvent<NewFileEvent>();
+  public fileUpdateEvent = new TypedEvent<FileUpdateEvent>();
+  public fileCompleteEvent = new TypedEvent<FileCompleteEvent>();
   private receivedFiles: Files = {};
   private inputBuffer: string = "";
 
-  private receivedFileCallback?: ReceivedFileCallback;
-
-  constructor(opts?: {
-    receivedFileCallback?: ReceivedFileCallback,
-  }) {
-    if (opts && opts.receivedFileCallback) {
-      this.setReceivedFileCallback(opts.receivedFileCallback);
-    }
-  }
-
-  setReceivedFileCallback(callback: ReceivedFileCallback) {
-    this.receivedFileCallback = function receivedFileCallback(file: File) {
-      callback(file);
-    };
+  constructor(opts?: {}) {
   }
 
   setCrc16(crc: typeof crc16) {
@@ -208,36 +307,63 @@ export class Deamp {
     for (let key in LTypes) {
       let ltype = LTypes[key] as LTypes;
       if (this.inputBuffer.indexOf(LTypes[ltype]) === -1) { continue; }
-      let block = Block.fromBuffer(ltype, this.inputBuffer);
-      while (block) {
+      let block: ReturnType<typeof Block.fromBuffer>;
+      while (block = Block.fromBuffer(ltype, this.inputBuffer)) {
         this.addBlockToFiles(block);
         let blockBufferIdx = this.inputBuffer.indexOf(block.buffer);
-        let s1 = this.inputBuffer.substr(0, blockBufferIdx);
-        let s2 = this.inputBuffer.substr(blockBufferIdx + block.buffer.length);
+        let s1 = this.inputBuffer.substring(0, blockBufferIdx);
+        let s2 = this.inputBuffer.substring(blockBufferIdx + block.buffer.length);
         this.inputBuffer = s1 + s2;
 
         if (this.inputBuffer.indexOf(LTypes[ltype]) === -1) { break; }
-        block = Block.fromBuffer(ltype, this.inputBuffer);
       }
     }
   }
 
   addBlockToFiles(inBlock: Block) {
+    let isNewBlock = false;
+    let file = this.receivedFiles[inBlock.hash];
     if (!this.receivedFiles[inBlock.hash]) {
-      this.receivedFiles[inBlock.hash] = new File(inBlock);
+      file = this.receivedFiles[inBlock.hash] = new File(inBlock);
+      isNewBlock = true;
+      this.newFileEvent.emit({
+        hash: inBlock.hash
+      });
     } else {
-      let fileCompleted = this.receivedFiles[inBlock.hash].addBlock(inBlock);
-      if (fileCompleted && this.receivedFileCallback) {
-        let file = this.receivedFiles[inBlock.hash];
-        this.receivedFileCallback(file);
+      isNewBlock = file.addBlock(inBlock)
+    }
+    if (isNewBlock) {
+      this.fileUpdateEvent.emit(file.getUpdateRecord());
+      if (file.isComplete()) {
+        this.fileCompleteEvent.emit({
+          hash: file.hash,
+          filename: file.name as string,
+        })
       }
     }
   }
 
   getFilesEntries() { return Object.keys(this.receivedFiles); }
+  /**
+   * Gets the file but leaves it in memory
+   * @param fileHash 
+   */
   getFile(fileHash: string) {
     return this.receivedFiles[fileHash];
   }
+  /**
+   * Retrieves the file and frees all related memory
+   * @param fileHash 
+   */
+  popFile(fileHash: string) {
+    let file = this.receivedFiles[fileHash];
+    delete this.receivedFiles[fileHash];
+    return file;
+  }
+  /**
+   * Gets the file contents by hash
+   * @param fileHash 
+   */
   getFileContents(fileHash: string) {
     let file = this.getFile(fileHash);
     let contents = file.getContent();
