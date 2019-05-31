@@ -17,6 +17,7 @@ import { HTypes, LTypes, MODIFIED_TIME_FORMAT, lzmaCompressedPrefix } from './am
 import  *  as lzma from './lzma';
 
 import * as base91 from './base91';
+import * as base64 from './base64';
 
 (window as any).moment = moment;
 
@@ -108,7 +109,7 @@ export class File {
       content = content.substring(endOfStart, content.lastIndexOf('['));
       switch(tag) {
         case '[b64:start]':
-          content = atob(content);
+          content = base64.decode(content);
           break;
         case '[b91:start]':
           content = base91.decode(content);

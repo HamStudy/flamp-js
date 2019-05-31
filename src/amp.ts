@@ -12,6 +12,7 @@ import moment from 'moment';
 import { crc16 as crc16JS } from './crc16';
 
 import * as base91 from './base91';
+import * as base64 from './base64';
 import * as lzma from './lzma';
 
 let crc16 = crc16JS;
@@ -207,7 +208,7 @@ export class Amp {
     if (this.base) {
       switch (this.base) {
         case "base64":
-          actualBuffer = `[b64:start]${btoa(actualBuffer)}[b64:end]`;
+          actualBuffer = `[b64:start]${base64.encode(actualBuffer)}[b64:end]`;
           break;
         case "base91":
           actualBuffer = `[b91:start]${base91.encode(actualBuffer)}[b91:end]`;
