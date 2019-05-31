@@ -18,6 +18,11 @@ let crc16 = crc16JS;
 
 export const MODIFIED_TIME_FORMAT = "YYYYMMDDHHmmss";
 
+const unprintableRegex = /[^ -~\n\r]+/;
+function hasNotPrintable(c: string) : boolean {
+  return unprintableRegex.test(c);
+}
+
 function assertUnreachable(x: never): never {
     throw new Error("Invalid case");
 }
@@ -181,6 +186,13 @@ export class Amp {
 
   quantizeMessage() {
     let actualBuffer = this.inputBuffer;
+
+    let needsBase = hasNotPrintable(actualBuffer);
+    if (needsBase && !this.base) {
+      // For our purposes we're forcing some base conversion if there are unprintable characters
+      this.base = 'base91';
+    }
+
     // Apply compression if any
     if (this.compression) {
       let newBuffer = "\1LZMA";
@@ -203,6 +215,12 @@ export class Amp {
         default:
           return assertUnreachable(this.base);
       }
+    }
+
+    if (actualBuffer.length > this.inputBuffer.length && !needsBase) {
+      // If all characters were printable and it's shorter without the conversion
+      // then let's just send it without
+      actualBuffer = this.inputBuffer;
     }
 
     let numbOfBlocks = Math.floor(actualBuffer.length / this.blkSize);
