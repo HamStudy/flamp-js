@@ -11,9 +11,16 @@
 import moment from 'moment';
 import { crc16 as crc16JS } from './crc16';
 
+import * as base91 from './base91';
+import * as lzma from './lzma';
+
 let crc16 = crc16JS;
 
 export const MODIFIED_TIME_FORMAT = "YYYYMMDDHHmmss";
+
+function assertUnreachable(x: never): never {
+    throw new Error("Invalid case");
+}
 
 export enum LTypes {
   FILE = "FILE",
@@ -49,7 +56,7 @@ export class Amp {
   private PROGRAM = "JSAMP";
   private VERSION = "0.0.1";
 
-  private base = "";
+  private base: ''|'base64'|'base91' = "";
   private compression: string | false = false;
   private blocks: any[] = [];
   private packagedBlocks: any[] = [];
@@ -128,6 +135,14 @@ export class Amp {
     return `${this.prefixBlocks.join('')}${blocksToReturn.join('')}${this.postfixBlocks.join('')}`;
   }
 
+  /**
+   * The base to use for transmitting the data, if any
+   * @param base base64 or base91
+   */
+  setBase(base: 'base64'|'base91') {
+    this.base = base;
+  }
+
   // | DTS : FN |C| B |BS|
   // DTS = Date/Time Stamp
   // FN = File Name
@@ -165,14 +180,39 @@ export class Amp {
   }
 
   quantizeMessage() {
-    let numbOfBlocks = Math.floor(this.inputBuffer.length / this.blkSize);
-    if (this.inputBuffer.length % this.blkSize > 0) {
+    let actualBuffer = this.inputBuffer;
+    // Apply compression if any
+    if (this.compression) {
+      let newBuffer = "\1LZMA";
+      newBuffer += lzma.encodeSync(actualBuffer, 2);
+      if (newBuffer.length < actualBuffer.length - 200) {
+        // If compression doesn't save us at least 200 bytes it's not worth while
+        actualBuffer = newBuffer;
+      }
+    }
+
+    // Apply base64 or base91 encoding here
+    if (this.base) {
+      switch (this.base) {
+        case "base64":
+          actualBuffer = `[b64:start]${btoa(actualBuffer)}[b64:end]`;
+          break;
+        case "base91":
+          actualBuffer = `[b91:start]${base91.encode(actualBuffer)}[b91:end]`;
+          break;
+        default:
+          return assertUnreachable(this.base);
+      }
+    }
+
+    let numbOfBlocks = Math.floor(actualBuffer.length / this.blkSize);
+    if (actualBuffer.length % this.blkSize > 0) {
       numbOfBlocks++;
     }
     this.blocks = [];
     let start = 0;
-    while (start < this.inputBuffer.length) {
-      this.blocks.push(this.inputBuffer.slice(start, start + this.blkSize));
+    while (start < actualBuffer.length) {
+      this.blocks.push(actualBuffer.slice(start, start + this.blkSize));
       start += this.blkSize;
     }
 

@@ -14,9 +14,29 @@ import moment from 'moment';
 import { crc16 as crc16JS } from './crc16';
 import { HTypes, LTypes, MODIFIED_TIME_FORMAT } from './amp';
 
+import  *  as lzma from './lzma';
+
+import * as base91 from './base91';
+
 (window as any).moment = moment;
 
 let crc16 = crc16JS;
+
+// Apply startsWith / endsWith polyfills
+(function (sp) {
+
+    if (!sp.startsWith)
+      sp.startsWith = function (str) {
+        return !!(str && this) && !this.lastIndexOf(str, 0)
+      }
+  
+    if (!sp.endsWith)
+      sp.endsWith = function (str) {
+        var offset = str && this ? this.length - str.length : -1
+        return offset >= 0 && this.lastIndexOf(str, offset) === offset
+      }
+  
+  })(String.prototype);
 
 export class Block { // Protocol Block
   static fromBuffer(ltype: LTypes, buffer: string): Block | null {
@@ -75,20 +95,38 @@ export class File {
     this.hash = firstBlock.hash;
     this.addBlock(firstBlock);
   }
-  toBlob() {
+  getContent() {
     let content = this.getDataBlocks().map((b) => b.data).join('');
     if (content.length !== this.size) {
       console.error('File size is not correct', content.length, this.size);
       return null;
     }
-    return new Blob([content], {type: 'text/plain'});
+
+    if (content.startsWith('[b') && content.endsWith(':end]')) {
+      let endOfStart = content.indexOf(']') + 1;
+      let tag = content.substring(0, endOfStart);
+      content = content.substr(endOfStart, content.lastIndexOf('['));
+      switch(tag) {
+        case '[b64:start]':
+          content = atob(content);
+          break;
+        case '[b91:start]':
+          content = base91.decode(content);
+          break;
+      }
+    }
+    if (content.startsWith("\1LZMA")) {
+      let lzmaContent = content.substring("\1LZMA".length);
+      content = lzma.decodeSync(lzmaContent);
+    }
+    return content;
+  }
+  toBlob() {
+    let content = this.getContent();
+    return new Blob([content as any], {type: 'text/plain'});
   }
   getBody() {
-    let content = this.getDataBlocks().map((b) => b.data).join('');
-    if (content.length !== this.size) {
-      console.error('File size is not correct', content.length, this.size);
-      return null;
-    }
+    let content = this.getContent();
     return content;
   }
   addBlock(inBlock: Block): boolean {
@@ -201,7 +239,7 @@ export class Deamp {
   }
   getFileContents(fileHash: string) {
     let file = this.getFile(fileHash);
-    let contents = file.getDataBlocks().map((block) => block.data);
-    return contents.join("");
+    let contents = file.getContent();
+    return contents;
   }
 }

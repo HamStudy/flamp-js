@@ -7,7 +7,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsc -p . && cp src/*.js dist/",
     "clean": "rm -rf dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -26,7 +26,11 @@
   "dependencies": {
     "moment": "~2.22.2"
   },
+  "peerDependencies": {
+    "tslib": "^1.9.3"
+  },
   "devDependencies": {
+    "tslib": "^1.9.3",
     "typescript": "~3.2.2"
   },
   "files": [
