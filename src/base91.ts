@@ -41,14 +41,13 @@ POSSIBILITY OF SUCH DAMAGE.
 const AVERAGE_ENCODING_RATIO = 1.2297,
    WORST_ENCODING_RATIO = 1.24,
     ENCODING_TABLE = [
-      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
-      'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-      'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-      '!', '#', '$', '%', '&', '(', ')', '*', '+', ',', '.', '/', ':', ';',
-      '<', '=', '>', '?', '@', '[', ']', '^', '_', '`', '{', '|', '}', '~',
-      '"',
+      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+      'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+      'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '!', '#', '$',
+      '%', '&', '(', ')', '*', '+', ',', '.', '/', ':', ';', '<', '=',
+      '>', '?', '@', '[', ']', '^', '_', '`', '{', '|', '}', '~', '"',
     ],
     DECODING_TABLE = [
       91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91,
@@ -145,9 +144,9 @@ export function encode(data: string) {
 
 export function decode(data: string|Uint8Array) : string {
   let len = data.length,
-      estimatedSize = ((len / WORST_ENCODING_RATIO) | 0),
-      dbq = 0, dn = 0, dv = -1, i = 0, o = -1, byte = 0,
-      output = new Uint8Array(estimatedSize);
+      estimatedSize = len,
+      dbQueue = 0, nbits = 0, dVal = -1, i = 0, n = 0, byte = 0,
+      output = "";
 
   if (typeof data == 'string') {
     data = Uint8Array.from(data.split('').map(c => c.charCodeAt(0)));
@@ -157,32 +156,28 @@ export function decode(data: string|Uint8Array) : string {
 
   for (i = 0; i < len; ++i) {
     byte = data[i];
+    let d = DECODING_TABLE[byte];
     // console.log(byte);
-    if (DECODING_TABLE[byte] === 91)
+    if (d === 91)
       continue;
-    if (dv === -1)
-      dv = DECODING_TABLE[byte];
+    if (dVal === -1)
+      dVal = d;
     else {
-      dv += DECODING_TABLE[byte] * 91;
-      dbq |= dv << dn;
-      dn += ((dv & 8191) > 88 ? 13 : 14);
+      dVal += d * 91;
+      dbQueue |= dVal << nbits;
+      nbits += ((dVal & 8191) > 88 ? 13 : 14);
       do {
-        output[++o] = dbq & 0xFF;
-        // console.log("Wrote:", output[o]);
-        dbq >>= 8;
-        dn -= 8;
-      } while (dn > 7);
-      dv = -1;
+        output += String.fromCharCode(dbQueue & 0xFF);
+        dbQueue >>= 8;
+        nbits -= 8;
+      } while (nbits > 7);
+      dVal = -1;
     }
   }
 
-  if (dv !== -1) {
-    output[++o] = (dbq | dv << dn);
+  if (dVal !== -1) {
+    output += String.fromCharCode((dbQueue | dVal << nbits) & 0xFF);
   }
 
-  if (o > -1 && o < estimatedSize - 1)
-    output = output.subarray(0, o + 1);
-
-  // Since the input of encode is a string, this may as well output a string...
-  return String.fromCharCode(...output);
+  return output;
 }
