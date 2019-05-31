@@ -201,6 +201,10 @@ export class Amp {
         // If compression doesn't save us at least 200 bytes it's not worth while
         actualBuffer = newBuffer;
       }
+      if (!this.base) {
+        // If we compreessed then we need to base encode it
+        this.base = 'base91';
+      }
     }
 
     // Apply base64 or base91 encoding here
