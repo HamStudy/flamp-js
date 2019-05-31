@@ -39,6 +39,7 @@ POSSIBILITY OF SUCH DAMAGE.
 // tslint:disable:no-bitwise
 
 const AVERAGE_ENCODING_RATIO = 1.2297,
+   WORST_ENCODING_RATIO = 1.24,
     ENCODING_TABLE = [
       'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
       'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
@@ -142,68 +143,46 @@ export function encode(data: string) {
   return output;
 }
 
-export function decode(data: string) : string {
+export function decode(data: string|Uint8Array) : string {
   let len = data.length,
-      estimatedSize = ((len / AVERAGE_ENCODING_RATIO) | 0),
+      estimatedSize = ((len / WORST_ENCODING_RATIO) | 0),
       dbq = 0, dn = 0, dv = -1, i = 0, o = -1, byte = 0,
-      output = new Array(estimatedSize);
+      output = new Uint8Array(estimatedSize);
 
-  if (typeof data === 'string') {
-    for (i = 0; i < len; ++i) {
-      byte = data.charCodeAt(i);
-      if (DECODING_TABLE[byte] === 91)
-        continue;
-      if (dv === -1)
-        dv = DECODING_TABLE[byte];
-      else {
-        dv += DECODING_TABLE[byte] * 91;
-        dbq |= dv << dn;
-        dn += ((dv & 8191) > 88 ? 13 : 14);
-        do {
-          if (++o >= estimatedSize)
-            output.push(dbq & 0xFF);
-          else
-            output[o] = dbq & 0xFF;
-          dbq >>= 8;
-          dn -= 8;
-        } while (dn > 7);
-        dv = -1;
-      }
-    }
-  } else {
-    for (i = 0; i < len; ++i) {
-      byte = data[i];
-      if (DECODING_TABLE[byte] === 91)
-        continue;
-      if (dv === -1)
-        dv = DECODING_TABLE[byte];
-      else {
-        dv += DECODING_TABLE[byte] * 91;
-        dbq |= dv << dn;
-        dn += ((dv & 8191) > 88 ? 13 : 14);
-        do {
-          if (++o >= estimatedSize)
-            output.push(dbq & 0xFF);
-          else
-            output[o] = dbq & 0xFF;
-          dbq >>= 8;
-          dn -= 8;
-        } while (dn > 7);
-        dv = -1;
-      }
+  if (typeof data == 'string') {
+    data = Uint8Array.from(data.split('').map(c => c.charCodeAt(0)));
+  }
+
+  let pos = 0;
+
+  for (i = 0; i < len; ++i) {
+    byte = data[i];
+    // console.log(byte);
+    if (DECODING_TABLE[byte] === 91)
+      continue;
+    if (dv === -1)
+      dv = DECODING_TABLE[byte];
+    else {
+      dv += DECODING_TABLE[byte] * 91;
+      dbq |= dv << dn;
+      dn += ((dv & 8191) > 88 ? 13 : 14);
+      do {
+        output[++o] = dbq & 0xFF;
+        // console.log("Wrote:", output[o]);
+        dbq >>= 8;
+        dn -= 8;
+      } while (dn > 7);
+      dv = -1;
     }
   }
 
   if (dv !== -1) {
-    if (++o >= estimatedSize)
-      output.push(dbq | dv << dn);
-    else
-      output[o] = (dbq | dv << dn);
+    output[++o] = (dbq | dv << dn);
   }
 
   if (o > -1 && o < estimatedSize - 1)
-    output = output.slice(0, o + 1);
+    output = output.subarray(0, o + 1);
 
   // Since the input of encode is a string, this may as well output a string...
-  return output.map(i => String.fromCharCode(i)).join('');
+  return String.fromCharCode(...output);
 }
