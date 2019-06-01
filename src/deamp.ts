@@ -144,6 +144,7 @@ export class File {
   blockSize?: number;
   hash: string;
   modified?: Date;
+  completeFired: boolean = false;
   constructor(firstBlock: Block) {
     this.hash = firstBlock.hash;
     this.addBlock(firstBlock);
@@ -160,7 +161,7 @@ export class File {
   getNeededBlocks() : number[] {
     let blocks = this.getOrderedDataBlocks();
 
-    return Object.keys(blocks).map(b => (blocks[Number(b)] ? null : b)).filter(b => !b) as any;
+    return Object.keys(blocks).map(b => (blocks[Number(b)] ? null : b)).filter(b => !!b) as any;
   }
   getRawContent() {
     if (!this.blockCount) {
@@ -224,7 +225,7 @@ export class File {
     let isNew = false;
     switch (inBlock.ltype) {
       case LTypes.FILE:
-        this.name = inBlock.data.substr(15);
+        this.name = inBlock.data.substring(15);
         this.modified = moment(inBlock.data.substr(0, 14), MODIFIED_TIME_FORMAT).toDate();
         break;
       case LTypes.ID:
@@ -323,7 +324,7 @@ export class Deamp {
   addBlockToFiles(inBlock: Block) {
     let isNewBlock = false;
     let file = this.receivedFiles[inBlock.hash];
-    if (!this.receivedFiles[inBlock.hash]) {
+    if (!file) {
       file = this.receivedFiles[inBlock.hash] = new File(inBlock);
       isNewBlock = true;
       this.newFileEvent.emit({
@@ -334,11 +335,12 @@ export class Deamp {
     }
     if (isNewBlock) {
       this.fileUpdateEvent.emit(file.getUpdateRecord());
-      if (file.isComplete()) {
+      if (file.isComplete() && !file.completeFired) {
         this.fileCompleteEvent.emit({
           hash: file.hash,
           filename: file.name as string,
-        })
+        });
+        file.completeFired = true;
       }
     }
   }

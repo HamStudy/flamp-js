@@ -139,15 +139,23 @@ export class Amp {
     return this.packagedBlocks.length;
   }
   getBlockCount() { return this.packagedBlocks.length; }
-  getBlocks(blockList?: number[]) {
+  /**
+   * Call to get the blocks
+   * @param blockList list of blocks to return (1-based). e.g. [1,2,3,4] will return the first four blocks
+   */
+  getBlocks(blockList: number[]|undefined = void 0, includeHeaders: boolean = true) {
     // If provided, blockList is a list of the blocks which will be returned in order
     let blocksToReturn: string[];
     if (blockList) {
-      blocksToReturn = blockList.map((idx) => this.packagedBlocks[idx]);
+      // Note that the block list should be 1-based
+      blocksToReturn = blockList.map((idx) => this.packagedBlocks[idx-1]);
     } else {
       blocksToReturn = this.packagedBlocks;
     }
-    return `${this.prefixBlocks.join('')}${blocksToReturn.join('')}${this.postfixBlocks.join('')}`;
+    let out = includeHeaders ? this.prefixBlocks.join('') : "";
+    out += blocksToReturn.join('');
+    out += this.postfixBlocks.join('');
+    return out;
   }
 
   /**

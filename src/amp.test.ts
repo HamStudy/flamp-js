@@ -20,6 +20,7 @@ let testFile = `bib,time in,time out
 14,01:05,01:55`;
 
 test("Create an AMP instance and do stuff", () => {
+  const blkSize = 64;
   let amp = new Amp({
     blkSize: 64,
     compression: false,
@@ -27,6 +28,16 @@ test("Create an AMP instance and do stuff", () => {
     fileModifiedTime: new Date(),
     inputBuffer: testFile
   });
+  let ampString  = amp.prepareBlocks();
 
   expect(amp).toBeTruthy();
+
+  let blocksToFetch = [1,2,3,4];
+  let str = amp.getBlocks(blocksToFetch);
+
+  for (let blNum of blocksToFetch) {
+    let startIdx = blkSize * (blNum - 1);
+    let substr = `:${blNum}}${testFile.substr(startIdx, 4)}`;
+    expect(str.indexOf(substr)).toBeGreaterThan(-1);
+  }
 });
