@@ -11,8 +11,9 @@
 // tslint:disable:max-classes-per-file
 
 import moment from 'moment';
+import { Block } from './block';
 import { crc16 as crc16JS } from './crc16';
-import { HTypes, LTypes, MODIFIED_TIME_FORMAT, lzmaCompressedPrefix } from './amp';
+import { LTypes, MODIFIED_TIME_FORMAT, lzmaCompressedPrefix } from './amp';
 
 import  *  as lzma from './lzma';
 
@@ -87,52 +88,6 @@ export interface FileCompleteEvent {
       }
   
   })(String.prototype);
-
-export class Block { // Protocol Block
-  static fromBuffer(ltype: LTypes, buffer: string): Block | null {
-    const block = new Block();
-    block.ltype = ltype;
-    let findBlockInfo = new RegExp(`<${block.ltype} (\\d+) (.+)>({(.+):(.+)}|{(.*)})`);
-    let blockInfo = findBlockInfo.exec(buffer);
-    if (!blockInfo) { return null; }
-
-    block.size = Number(blockInfo[1]);
-    block.data = buffer.substr(blockInfo.index + blockInfo[0].length, block.size - blockInfo[3].length);
-    block.buffer = `${blockInfo[0]}${block.data}`;
-    block.checksum = blockInfo[2];
-    block.hash = blockInfo[4] || blockInfo[6];
-    let blockNumOrHType = blockInfo[5];
-    if (blockNumOrHType in HTypes) {
-      block.htype = blockNumOrHType;
-    } else if (blockNumOrHType) {
-      block.blockNum = Number(blockNumOrHType);
-    }
-
-    // Validate Protocol Block with checksum
-    if (!block.data || !block.checksum) { return null; }
-    try {
-      if (crc16(block.getHashString() + block.data) === block.checksum) {
-        return block;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return null;
-  }
-
-  buffer!: string;
-  checksum!: string; // crc16 of hash:# + data
-  blockNum?: number; // Data block number
-  data!: string;
-  hash!: string;
-  htype?: string;
-  ltype!: LTypes;
-  size!: number;
-
-  getHashString() {
-    return "{" + this.hash + (this.blockNum ? ':' + this.blockNum : "") + "}";
-  }
-}
 
 export class File {
   fromCallsign: string | null = null;
@@ -223,7 +178,7 @@ export class File {
    */
   addBlock(inBlock: Block): boolean {
     let isNew = false;
-    switch (inBlock.ltype) {
+    switch (inBlock.keyword) {
       case LTypes.FILE:
         this.name = inBlock.data.substring(15);
         this.modified = moment(inBlock.data.substr(0, 14), MODIFIED_TIME_FORMAT).toDate();
@@ -242,7 +197,7 @@ export class File {
       default:
         break;
     }
-    if (!this.headerBlocks.find(b => b.ltype === inBlock.ltype && b.checksum === inBlock.checksum)) {
+    if (!this.headerBlocks.find(b => b.keyword === inBlock.keyword && b.checksum === inBlock.checksum)) {
       this.headerBlocks.push(inBlock);
       return true;
     }
@@ -311,9 +266,9 @@ export class Deamp {
       let block: ReturnType<typeof Block.fromBuffer>;
       while (block = Block.fromBuffer(ltype, this.inputBuffer)) {
         this.addBlockToFiles(block);
-        let blockBufferIdx = this.inputBuffer.indexOf(block.buffer);
+        let blockBufferIdx = this.inputBuffer.indexOf(block.toString());
         let s1 = this.inputBuffer.substring(0, blockBufferIdx);
-        let s2 = this.inputBuffer.substring(blockBufferIdx + block.buffer.length);
+        let s2 = this.inputBuffer.substring(blockBufferIdx + block.toString().length);
         this.inputBuffer = s1 + s2;
 
         if (this.inputBuffer.indexOf(LTypes[ltype]) === -1) { break; }

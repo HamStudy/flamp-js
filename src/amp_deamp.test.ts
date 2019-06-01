@@ -34,10 +34,10 @@ test("Stream an amp instance", () => {
 
   expect(amp).toBeTruthy();
 
-  let blockCount  = amp.prepareBlocks();
+  let blockCount  = amp.getDataBlockCount();
   let blocksToXmit = [...Array(blockCount).keys()].map(n=>n+1);
 
-  let fileAmpString = amp.getBlocks(blocksToXmit);
+  let fileAmpString = amp.toString(blocksToXmit);
 
   let deamp = new Deamp();
   const onNewFileFn = jest.fn();
@@ -50,7 +50,6 @@ test("Stream an amp instance", () => {
   deamp.ingestString(fileAmpString);
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
-  expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
   expect(onFileUpdateFn).toHaveBeenCalledTimes(8);
   expect(onFileUpdateFn).toHaveBeenCalledWith({
     blockCount: 4,
@@ -61,5 +60,6 @@ test("Stream an amp instance", () => {
     fileSize: 221,
     hash: amp.buildHashString().substr(1,4),
   });
+  expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
 
 });

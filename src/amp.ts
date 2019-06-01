@@ -9,6 +9,7 @@
 //
 
 import moment from 'moment';
+import { Block } from './block';
 import { crc16 as crc16JS } from './crc16';
 
 import * as base91 from './base91';
@@ -39,7 +40,7 @@ export enum LTypes {
   PROG = "PROG",
   CNTL = "CNTL",
 }
-export enum HTypes {
+export enum ControlWord {
   EOF = "EOF",
   EOT = "EOT",
 }
@@ -76,13 +77,13 @@ export class Amp {
 
   private base: '' | BaseEncode = "";
   private compression: CompressionType | false = false;
-  private blocks: any[] = [];
+  private blocks: {[key: string]: Block} = {};
   private packagedBlocks: any[] = [];
-  private prefixBlocks: any[] = [];
-  private postfixBlocks: any[] = [];
+  private preProtocolHeaders = '';
+  private postProtocolHeaders = '';
   private headerString: string = '';
   private headerStringHash: string = '';
-  private numbOfBlocks: number = 0;
+  private dataBlockCount = 0;
 
   // Fields used in receiving.
   private receivedFiles: any = {};
@@ -114,49 +115,77 @@ export class Amp {
     this.headerString = this.buildHeaderStr();
     // console.log('\n\n\nheader string', this.headerString, '\n\n\n');
     this.headerStringHash = crc16(this.headerString); // this goes in the {} after each < > tag
+
+    this.dataBlockCount = this.quantizeMessage();
+
+    this.blocks[LTypes.PROG] = new Block(LTypes.PROG, this.headerStringHash, `${this.PROGRAM} ${this.VERSION}`);
+    this.blocks[LTypes.FILE] = new Block(LTypes.FILE, this.headerStringHash, `${this.getFormattedDate()}:${this.filename}`);
+    this.blocks[LTypes.ID] = new Block(LTypes.ID, this.headerStringHash, this.fromCallsign || '');
+    this.blocks[LTypes.SIZE] = new Block(LTypes.SIZE, this.headerStringHash, `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`);
+    this.blocks[`${LTypes.CNTL}_${ControlWord.EOF}`] = new Block(LTypes.CNTL, this.headerStringHash, ControlWord.EOF);
+    this.blocks[`${LTypes.CNTL}_${ControlWord.EOT}`] = new Block(LTypes.CNTL, this.headerStringHash, ControlWord.EOT);
   }
 
   setCrc16(crc: typeof crc16) {
     crc16 = crc;
   }
 
-  prepareBlocks() {
-    this.numbOfBlocks = this.quantizeMessage();
-    let preString = "QST QST QST\n\n";
-    if (this.toCallsign && this.fromCallsign) {
-      preString = `${this.toCallsign} ${this.toCallsign} DE ${this.fromCallsign}\n\n`;
-    } else if (this.toCallsign) {
-      preString = `${this.toCallsign} ${this.toCallsign} DE ME\n\n`;
-    } else if (this.fromCallsign) {
-      preString = `QST QST QST DE ${this.fromCallsign}\n\n`;
+  toString(blockList?: number[], includeHeaders = true) {
+    let blockStrings: string[] = [];
+
+    if (includeHeaders) {
+      if (this.toCallsign && this.fromCallsign) {
+        blockStrings.push(`${this.toCallsign} ${this.toCallsign} DE ${this.fromCallsign}\n\n`);
+      } else if (this.toCallsign) {
+        blockStrings.push(`${this.toCallsign} ${this.toCallsign} DE ME\n\n`);
+      } else if (this.fromCallsign) {
+        blockStrings.push(`QST QST QST DE ${this.fromCallsign}\n\n`);
+      } else {
+        blockStrings.push("QST QST QST\n\n");
+      }
     }
-    this.prefixBlocks.push(preString);
-    this.buildHeaderBlocks();
-    this.buildIDBlock();
-    this.buildBlocks();
-    this.buildFooterBlocks();
-    this.postfixBlocks.push(preString);
-    return this.packagedBlocks.length;
-  }
-  getBlockCount() { return this.packagedBlocks.length; }
-  /**
-   * Call to get the blocks
-   * @param blockList list of blocks to return (1-based). e.g. [1,2,3,4] will return the first four blocks
-   */
-  getBlocks(blockList: number[]|undefined = void 0, includeHeaders: boolean = true) {
-    // If provided, blockList is a list of the blocks which will be returned in order
-    let blocksToReturn: string[];
-    if (blockList) {
-      // Note that the block list should be 1-based
-      blocksToReturn = blockList.map((idx) => this.packagedBlocks[idx-1]);
-    } else {
-      blocksToReturn = this.packagedBlocks;
+    for (let key of [LTypes.PROG, LTypes.FILE, LTypes.ID, LTypes.SIZE, LTypes.DATA, LTypes.CNTL]) {
+      if ((!blockList || includeHeaders) && this.blocks[key]) {
+        blockStrings.push(this.blocks[key].toString());
+      }
+      if (key === LTypes.DATA) {
+        if (!blockList) {
+          blockList = Object.keys(this.blocks || {})
+            .filter(i => !isNaN(Number(i)))
+            .map(i => Number(i))
+          ;
+        }
+        for (let idx of blockList) {
+          if (this.blocks[idx]) {
+            blockStrings.push(this.blocks[idx].toString());
+          }
+        }
+      }
     }
-    let out = includeHeaders ? this.prefixBlocks.join('') : "";
-    out += blocksToReturn.join('');
-    out += this.postfixBlocks.join('');
-    return out;
+    if (includeHeaders) {
+      blockStrings.push(blockStrings[0]);
+    }
+    return blockStrings.join('\n');
   }
+  getDataBlockCount() { return this.dataBlockCount; }
+  // /**
+  //  * Call to get the blocks
+  //  * @param blockList list of blocks to return (1-based). e.g. [1,2,3,4] will return the first four blocks
+  //  */
+  // getBlocks(blockList: number[]|undefined = void 0, includeHeaders: boolean = true) {
+  //   // If provided, blockList is a list of the blocks which will be returned in order
+  //   let blocksToReturn: string[];
+  //   if (blockList) {
+  //     // Note that the block list should be 1-based
+  //     blocksToReturn = blockList.map((idx) => this.packagedBlocks[idx-1]);
+  //   } else {
+  //     blocksToReturn = this.packagedBlocks;
+  //   }
+  //   let out = includeHeaders ? this.prefixBlocks.join('') : "";
+  //   out += blocksToReturn.join('');
+  //   out += this.postfixBlocks.join('');
+  //   return out;
+  // }
 
   /**
    * The base to use for transmitting the data, if any
@@ -249,82 +278,15 @@ export class Amp {
     if (actualBuffer.length % this.blkSize > 0) {
       numbOfBlocks++;
     }
-    this.blocks = [];
+    let blockNum = 1;
     let start = 0;
     while (start < actualBuffer.length) {
-      this.blocks.push(actualBuffer.slice(start, start + this.blkSize));
+      let block = new Block(LTypes.DATA, this.headerStringHash, actualBuffer.slice(start, start + this.blkSize), blockNum);
+      this.blocks[blockNum] = block;
       start += this.blkSize;
+      blockNum++;
     }
 
     return numbOfBlocks;
-  }
-  buildBlocks(blockList?: number[]) {
-    // If blockList is provided, it should be an array of the zero indexed blocks which should be prepared
-    this.packagedBlocks = this.blocks.map((blk, idx) => {
-        let pBlock = `<${LTypes.DATA} `;
-        let blockText = this.buildHashString(String(idx + 1));
-        blockText += blk;
-        pBlock += blockText.length;
-        pBlock += " " + crc16(blockText) + ">";
-        pBlock += blockText + "\n";
-        return pBlock;
-    });
-  }
-  buildHeaderBlocks() {
-    // PROGRAM BLOCK
-    let pBlock = `<${LTypes.PROG} `;
-    let blockText = this.buildHashString();
-    blockText += this.PROGRAM + " " + this.VERSION;
-    pBlock += blockText.length;
-    pBlock += ` ${crc16(blockText)}>`;
-    pBlock += `${blockText}\n`;
-    this.prefixBlocks.push(pBlock);
-
-    // FILE BLOCK
-    pBlock = `<${LTypes.FILE} `;
-    blockText = this.buildHashString();
-    blockText += this.getFormattedDate() + ":" + this.filename;
-    pBlock += blockText.length;
-    pBlock += ` ${crc16(blockText)}>`;
-    pBlock += `${blockText}\n`;
-    this.prefixBlocks.push(pBlock);
-
-    // SIZE BLOCK
-    let sizeString = `${this.blocks.join('').length} ${this.numbOfBlocks} ${this.blkSize}`;
-    pBlock = `<${LTypes.SIZE} `;
-    blockText = this.buildHashString();
-    blockText += sizeString;
-    pBlock += blockText.length;
-    pBlock += ` ${crc16(blockText)}>`;
-    pBlock += `${blockText}\n`;
-    this.prefixBlocks.push(pBlock);
-  }
-
-  buildIDBlock() {
-    // ID BLOCK
-    let pBlock = `<${LTypes.ID} `;
-    let blockText = this.buildHashString();
-    blockText += this.fromCallsign;
-    pBlock += blockText.length;
-    pBlock += ` ${crc16(blockText)}>`;
-    pBlock += `${blockText}\n`;
-    this.prefixBlocks.push(pBlock);
-  }
-  buildFooterBlocks() {
-    // CONTROL EOF
-    let pBlock = `<${LTypes.CNTL} `;
-    let blockText = this.buildHashString(HTypes.EOF);
-    pBlock += blockText.length;
-    pBlock += ` ${crc16(blockText)}>`;
-    pBlock += `${blockText}\n`;
-    this.postfixBlocks.push(pBlock);
-
-    // CONTROL EOT
-    pBlock = `<${LTypes.CNTL} `;
-    blockText = this.buildHashString(HTypes.EOT);
-    pBlock += blockText.length;
-    pBlock += ` ${crc16(blockText)}>`;
-    pBlock += `${blockText}\n`;
-    this.postfixBlocks.push(pBlock);
   }
 }

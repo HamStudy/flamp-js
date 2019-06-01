@@ -28,12 +28,12 @@ test("Create an AMP instance and do stuff", () => {
     fileModifiedTime: new Date(),
     inputBuffer: testFile
   });
-  let ampString  = amp.prepareBlocks();
+  let ampString  = amp.toString();
 
   expect(amp).toBeTruthy();
 
   let blocksToFetch = [1,2,3,4];
-  let str = amp.getBlocks(blocksToFetch);
+  let str = amp.toString(blocksToFetch);
 
   for (let blNum of blocksToFetch) {
     let startIdx = blkSize * (blNum - 1);
