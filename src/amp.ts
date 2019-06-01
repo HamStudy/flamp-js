@@ -55,6 +55,7 @@ export enum CompressionType {
 }
 export interface IOptions {
   compression?: CompressionType | false,
+  forceCompress?: boolean;
   base?: BaseEncode,
   fromCallsign?: string,
   toCallsign?: string,
@@ -62,6 +63,9 @@ export interface IOptions {
   fileModifiedTime: Date,
   inputBuffer: string,
   blkSize: number,
+  skipProgram?: boolean,
+  useEOF?: boolean,
+  useEOT?: boolean,
 }
 
 export class Amp {
@@ -77,6 +81,7 @@ export class Amp {
 
   private base: '' | BaseEncode = "";
   private compression: CompressionType | false = false;
+  private forceCompress = false;
   private blocks: {[key: string]: Block} = {};
   private packagedBlocks: any[] = [];
   private preProtocolHeaders = '';
@@ -84,6 +89,10 @@ export class Amp {
   private headerString: string = '';
   private headerStringHash: string = '';
   private dataBlockCount = 0;
+
+  private skipProgram: boolean = false;
+  private useEOF: boolean = true;
+  private useEOT: boolean = true;
 
   // Fields used in receiving.
   private receivedFiles: any = {};
@@ -97,6 +106,12 @@ export class Amp {
     this.fileModifiedTime = opts.fileModifiedTime;
     this.blkSize = opts.blkSize;
     this.compression = opts.compression || false;
+    this.forceCompress == !!opts.forceCompress;
+
+    this.skipProgram = !!opts.skipProgram;
+    this.useEOF = opts.useEOF !== false;
+    this.useEOT = opts.useEOT !== false;
+    
     if (opts.base) {
       this.setBase(opts.base);
     }
@@ -269,7 +284,8 @@ export class Amp {
       }
     }
 
-    if (actualBuffer.length > this.inputBuffer.length && !needsBase) {
+    if (actualBuffer.length > this.inputBuffer.length
+      && !needsBase && !this.forceCompress) {
       // If all characters were printable and it's shorter without the conversion
       // then let's just send it without
       actualBuffer = this.inputBuffer;
@@ -290,4 +306,5 @@ export class Amp {
 
     return numbOfBlocks;
   }
+
 }

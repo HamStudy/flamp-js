@@ -3,43 +3,50 @@ import { crc16 } from './crc16';
 
 export class Block { // Protocol Block
   static fromBuffer(keyword: LTypes, buffer: string): Block | null {
-    let findBlockInfo: RegExp;
-    switch (keyword) {
-      case LTypes.DATA:
-        findBlockInfo = new RegExp(`<${keyword} (\\d+) ([0-9,a-f,A-F]{4})>({([0-9,a-f,A-F]{4}):(\\d+)})`);
-        break;
-      case LTypes.CNTL:
-        findBlockInfo = new RegExp(`<${keyword} (\\d+) ([0-9,a-f,A-F]{4})>({([0-9,a-f,A-F]{4}):(${ControlWord.EOF}|${ControlWord.EOT})})`);
-    
-      default:
-        findBlockInfo = new RegExp(`<${keyword} (\\d+) ([0-9,a-f,A-F]{4})>({([0-9,a-f,A-F]{4})})`);
-        break;
+    let ltype = keyword;
+
+    // Parse the block info
+    let blockToken = `<${ltype} `;
+    let blockStart = buffer.indexOf(blockToken);
+    if (blockStart < -1) { return null; }
+    // Blocks should never be bigger than this, so to keep searches sane...
+    buffer = buffer.substring(blockStart, blockStart + 500);
+    let lengthEnd = buffer.indexOf(' ', blockToken.length);
+    if (lengthEnd < -1) { return null; }
+    let byteCount = parseInt(buffer.substring(blockToken.length, lengthEnd + 1), 10);
+    if (isNaN(byteCount)) { return null; }
+    let tagEnd = buffer.indexOf(">");
+
+    // We now know the exact size and shape of the block, so let's trim the fat:
+    if (buffer.length < tagEnd + 1 + byteCount) {
+      return null;
     }
-    let blockInfo = findBlockInfo.exec(buffer);
-    if (!blockInfo) { return null; }
+    buffer = buffer.substring(0, tagEnd + 1 + byteCount);
 
-    const byteCount = Number(blockInfo[1]);
-    const expectedChecksum = blockInfo[2];
-    const hash = blockInfo[4];
-    const blockData = buffer.substr(blockInfo.index + blockInfo[0].length, byteCount - blockInfo[3].length);
+    let tag = buffer.substring(0, tagEnd);
 
-    const block = new Block(
-      keyword,
-      hash,
-      blockData,
-    );
-
-    if (keyword === LTypes.DATA) {
-      block.blockNum = Number(blockInfo[5]);
-    } else if (keyword === LTypes.CNTL) {
-      block.controlWord = blockInfo[5] as ControlWord;
+    let data = buffer.substring(tagEnd + 1);
+    let bracedArea = [""];
+    if (data.startsWith('{')) {
+      bracedArea = data.substring(1, data.indexOf('}')).split(':');
+      data = data.substring(data.indexOf('}')+1);
     }
+    let expectedChecksum = tag.substr(-4);
+    let hash = bracedArea[0];
 
+    let block = new Block(keyword, hash, data);
+    block.hash = bracedArea[0];
+    let blockNumOrHType = bracedArea[1];
+    if (blockNumOrHType in ControlWord) {
+      block.controlWord = blockNumOrHType as ControlWord;
+    } else if (blockNumOrHType) {
+      block.blockNum = Number(blockNumOrHType);
+    }
 
     // Validate Protocol Block with checksum
     if (!block.checksum || !expectedChecksum) { return null; }
     try {
-      if (block.checksum === expectedChecksum && block.toString() === `${blockInfo[0]}${blockData}`) {
+      if (block.checksum === expectedChecksum && block.toString() === buffer) {
         return block;
       }
     } catch (e) {

@@ -54,8 +54,6 @@ export interface FileUpdateEvent {
   blockCount?: number;
   /** The size of each block (if known) */
   blockSize?: number;
-  /** The size of the file (if known) */
-  fileSize?: number;
 }
 
 /**
@@ -87,7 +85,8 @@ export interface FileCompleteEvent {
         return offset >= 0 && this.lastIndexOf(str, offset) === offset
       }
   
-  })(String.prototype);
+  })(String.prototype)
+
 
 export class File {
   fromCallsign: string | null = null;
@@ -166,7 +165,6 @@ export class File {
       filename: this.name,
       blockCount: this.blockCount,
       blockSize: this.blockSize,
-      fileSize: this.size,
       blocksSeen: Object.keys(this.dataBlock).map(n => Number(n)),
       blocksNeeded: this.blockSize ? this.getNeededBlocks() : void 0,
     };
@@ -218,8 +216,16 @@ export class File {
       return false
     }
     try {
-      let rawContent = this.getRawContent();
-      return rawContent.length === this.size;
+      // Raw content length will be less than
+      // the size if we are compressed or encoded,
+      // so we don't use that check anymore.
+      // let rawContent = this.getRawContent();
+      // return rawContent.length === this.size;
+      //
+      // When we have no needed blocks and we know
+      // the name and the block count then WE ARE DONE!
+      let needed = this.getNeededBlocks();
+      return needed.length == 0;
     } catch {
       return false;
     }
