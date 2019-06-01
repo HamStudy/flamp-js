@@ -145,6 +145,7 @@ export class Amp {
       }
     }
     for (let key of [LTypes.PROG, LTypes.FILE, LTypes.ID, LTypes.SIZE, LTypes.DATA, LTypes.CNTL]) {
+      if (key === LTypes.ID && !this.fromCallsign) { continue; }
       if ((!blockList || includeHeaders) && this.blocks[key]) {
         blockStrings.push(this.blocks[key].toString());
       }

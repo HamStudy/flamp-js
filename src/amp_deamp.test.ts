@@ -50,7 +50,7 @@ test("Stream an amp instance", () => {
   deamp.ingestString(fileAmpString);
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
-  expect(onFileUpdateFn).toHaveBeenCalledTimes(8);
+  expect(onFileUpdateFn).toHaveBeenCalledTimes(7);
   expect(onFileUpdateFn).toHaveBeenCalledWith({
     blockCount: 4,
     blockSize: 64,
