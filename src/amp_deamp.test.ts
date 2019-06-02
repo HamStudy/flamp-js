@@ -76,10 +76,10 @@ test("Simple file amp and deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.buildHashString().substr(1,4);
+  let fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
-  expect(onFileUpdateFn).toHaveBeenCalledTimes(7);
+  expect(onFileUpdateFn).toHaveBeenCalledTimes(6);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
   expect(onFileUpdateFn).toHaveBeenCalledWith({
     blockCount: 4,
@@ -126,11 +126,11 @@ test("Compressed base91 file amp and deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.buildHashString().substr(1,4);
+  let fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
-  expect(onFileUpdateFn).toHaveBeenCalledTimes(7);
+  expect(onFileUpdateFn).toHaveBeenCalledTimes(6);
   expect(onFileUpdateFn).toHaveBeenLastCalledWith({
     blockCount: blockCount,
     blockSize: 64,
@@ -180,7 +180,7 @@ xtest("Large file amp uncompressed then deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.buildHashString().substr(1,4);
+  let fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
@@ -233,7 +233,7 @@ xtest("Large file amp compressed then deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.buildHashString().substr(1,4);
+  let fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);

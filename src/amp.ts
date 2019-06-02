@@ -10,13 +10,11 @@
 
 import moment from 'moment';
 import { Block } from './block';
-import { crc16 as crc16JS } from './crc16';
+import { crc16 } from './crc16';
 
 import * as base91 from './base91';
 import * as base64 from './base64';
 import * as lzma from './lzma';
-
-let crc16 = crc16JS;
 
 export const lzmaCompressedPrefix = '\u0001LZMA';
 export const MODIFIED_TIME_FORMAT = "YYYYMMDDHHmmss";
@@ -69,6 +67,18 @@ export interface IOptions {
 }
 
 export class Amp {
+  static getHash(filename: string, modified: Date, compressed: boolean, baseConversion: BaseEncode | '', blockSize: number) {
+    // | DTS : FN |C| B |BS|
+    // DTS = Date/Time Stamp
+    // FN = File Name
+    // C = Compression 1=ON,0=OFF
+    // B = Base Conversion (base64, base128, or base256)
+    // BS = Block Size, 1 or more characters
+    // | = Field separator.
+    let DTS = moment(modified).format(MODIFIED_TIME_FORMAT);
+    return crc16(`${DTS}:${filename}${compressed ? '1' : '0'}${baseConversion}${blockSize}`);
+
+  }
   private fromCallsign: string | null;
   private toCallsign: string | null;
   private filename: string;
@@ -82,12 +92,16 @@ export class Amp {
   private base: '' | BaseEncode = "";
   private compression: CompressionType | false = false;
   private forceCompress = false;
-  private blocks: {[key: string]: Block} = {};
-  private packagedBlocks: any[] = [];
-  private preProtocolHeaders = '';
-  private postProtocolHeaders = '';
-  private headerString: string = '';
-  private headerStringHash: string = '';
+  private blocks: {
+    [LTypes.PROG]?: Block;
+    [LTypes.FILE]?: Block;
+    [LTypes.ID]?: Block;
+    [LTypes.SIZE]?: Block;
+    [key: number]: Block; // Data blocks
+    [ControlWord.EOF]?: Block;
+    [ControlWord.EOT]?: Block;
+  } = {};
+  hash: string = '';
   private dataBlockCount = 0;
 
   private skipProgram: boolean = false;
@@ -103,7 +117,7 @@ export class Amp {
     this.fromCallsign = opts.fromCallsign || null;
     this.toCallsign = opts.toCallsign || null;
     this.filename = opts.filename;
-    this.fileModifiedTime = opts.fileModifiedTime;
+    this.fileModifiedTime = opts.fileModifiedTime || new Date();
     this.blkSize = opts.blkSize;
     this.compression = opts.compression || false;
     this.forceCompress == !!opts.forceCompress;
@@ -115,63 +129,57 @@ export class Amp {
     if (opts.base) {
       this.setBase(opts.base);
     }
-    /*
-    //Type checking the input buffer:
-    if (typeof inputBuffer != "object") {
-        throw(new Error("inputBuffer is not an object."));
-    }
-    if (!(inputBuffer instanceof Array) && !(inputBuffer instanceof Uint8Array)) {
-        throw(new Error("inputBuffer is not an array or an Uint8Array."));
-    }
-    */
     this.inputBuffer = opts.inputBuffer;
 
-    // Initialize the resampler:
-    this.headerString = this.buildHeaderStr();
-    // console.log('\n\n\nheader string', this.headerString, '\n\n\n');
-    this.headerStringHash = crc16(this.headerString); // this goes in the {} after each < > tag
+    this.hash = Amp.getHash(this.filename, this.fileModifiedTime, !!this.compression, this.base, this.blkSize);
 
     this.dataBlockCount = this.quantizeMessage();
 
-    this.blocks[LTypes.PROG] = new Block(LTypes.PROG, this.headerStringHash, `${this.PROGRAM} ${this.VERSION}`);
-    this.blocks[LTypes.FILE] = new Block(LTypes.FILE, this.headerStringHash, `${this.getFormattedDate()}:${this.filename}`);
-    this.blocks[LTypes.ID] = new Block(LTypes.ID, this.headerStringHash, this.fromCallsign || '');
-    this.blocks[LTypes.SIZE] = new Block(LTypes.SIZE, this.headerStringHash, `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`);
-    this.blocks[`${LTypes.CNTL}_${ControlWord.EOF}`] = new Block(LTypes.CNTL, this.headerStringHash, ControlWord.EOF);
-    this.blocks[`${LTypes.CNTL}_${ControlWord.EOT}`] = new Block(LTypes.CNTL, this.headerStringHash, ControlWord.EOT);
-  }
-
-  setCrc16(crc: typeof crc16) {
-    crc16 = crc;
+    this.blocks[LTypes.PROG] = new Block(LTypes.PROG, this.hash, `${this.PROGRAM} ${this.VERSION}`);
+    this.blocks[LTypes.FILE] = new Block(LTypes.FILE, this.hash, `${moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT)}:${this.filename}`);
+    this.blocks[LTypes.ID] = new Block(LTypes.ID, this.hash, this.fromCallsign || '');
+    this.blocks[LTypes.SIZE] = new Block(LTypes.SIZE, this.hash, `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`);
+    this.blocks[ControlWord.EOF] = new Block(LTypes.CNTL, this.hash, ControlWord.EOF);
+    this.blocks[ControlWord.EOT] = new Block(LTypes.CNTL, this.hash, ControlWord.EOT);
   }
 
   toString(blockList?: number[], includeHeaders = true) {
     let blockStrings: string[] = [];
 
-    if (includeHeaders) {
-      if (this.toCallsign && this.fromCallsign) {
-        blockStrings.push(`${this.toCallsign} ${this.toCallsign} DE ${this.fromCallsign}\n\n`);
-      } else if (this.toCallsign) {
-        blockStrings.push(`${this.toCallsign} ${this.toCallsign} DE ME\n\n`);
-      } else if (this.fromCallsign) {
-        blockStrings.push(`QST QST QST DE ${this.fromCallsign}\n\n`);
-      } else {
-        blockStrings.push("QST QST QST\n\n");
-      }
+    let preProtocolHeaders: string;
+    if (this.toCallsign && this.fromCallsign) {
+      preProtocolHeaders = `${this.toCallsign} ${this.toCallsign} DE ${this.fromCallsign}\n\n`;
+    } else if (this.toCallsign) {
+      preProtocolHeaders = `${this.toCallsign} ${this.toCallsign} DE ME\n\n`;
+    } else if (this.fromCallsign) {
+      preProtocolHeaders = `QST QST QST DE ${this.fromCallsign}\n\n`;
+    } else {
+      preProtocolHeaders = "QST QST QST\n\n";
     }
-    for (let key of [LTypes.PROG, LTypes.FILE, LTypes.ID, LTypes.SIZE, LTypes.DATA, LTypes.CNTL]) {
-      if (key === LTypes.ID && !this.fromCallsign) { continue; }
-      if ((!blockList || includeHeaders) && this.blocks[key]) {
-        blockStrings.push(this.blocks[key].toString());
+    // Looping through the keywords in a specific order to build the output string
+    for (let key of [
+      LTypes.PROG,
+      LTypes.FILE,
+      LTypes.ID,
+      LTypes.SIZE,
+      LTypes.DATA,
+      ControlWord.EOF,
+      ControlWord.EOT
+    ]) {
+    // for (let key of Object.keys(this.blocks)) {
+      if (
+        (key === LTypes.PROG && this.skipProgram)
+        || (key === LTypes.ID && !this.fromCallsign)
+        || (key === ControlWord.EOF && !this.useEOF)
+        || (key === ControlWord.EOT && !this.useEOT)
+      ) { continue; }
+
+      if ((!blockList || includeHeaders) && this.blocks[key as any]) {
+        blockStrings.push(this.blocks[key as any].toString());
       }
+
       if (key === LTypes.DATA) {
-        if (!blockList) {
-          blockList = Object.keys(this.blocks || {})
-            .filter(i => !isNaN(Number(i)))
-            .map(i => Number(i))
-          ;
-        }
-        for (let idx of blockList) {
+        for (let idx of blockList && blockList.sort() || [...Array(this.dataBlockCount).keys()]) {
           if (this.blocks[idx]) {
             blockStrings.push(this.blocks[idx].toString());
           }
@@ -179,29 +187,12 @@ export class Amp {
       }
     }
     if (includeHeaders) {
-      blockStrings.push(blockStrings[0]);
+      blockStrings.unshift(preProtocolHeaders);
+      blockStrings.push(preProtocolHeaders);
     }
     return blockStrings.join('\n');
   }
   getDataBlockCount() { return this.dataBlockCount; }
-  // /**
-  //  * Call to get the blocks
-  //  * @param blockList list of blocks to return (1-based). e.g. [1,2,3,4] will return the first four blocks
-  //  */
-  // getBlocks(blockList: number[]|undefined = void 0, includeHeaders: boolean = true) {
-  //   // If provided, blockList is a list of the blocks which will be returned in order
-  //   let blocksToReturn: string[];
-  //   if (blockList) {
-  //     // Note that the block list should be 1-based
-  //     blocksToReturn = blockList.map((idx) => this.packagedBlocks[idx-1]);
-  //   } else {
-  //     blocksToReturn = this.packagedBlocks;
-  //   }
-  //   let out = includeHeaders ? this.prefixBlocks.join('') : "";
-  //   out += blocksToReturn.join('');
-  //   out += this.postfixBlocks.join('');
-  //   return out;
-  // }
 
   /**
    * The base to use for transmitting the data, if any
@@ -209,42 +200,6 @@ export class Amp {
    */
   setBase(base: '' | BaseEncode) {
     this.base = base;
-  }
-
-  // | DTS : FN |C| B |BS|
-  // DTS = Date/Time Stamp
-  // FN = File Name
-  // C = Compression 1=ON,0=OFF
-  // B = Base Conversion (base64, base128, or base256)
-  // BS = Block Size, 1 or more characters
-  // | = Field separator.
-  buildHeaderStr() {
-    let headerStr = this.getFormattedDate() + ":" + this.filename;
-    if (this.compression) {
-      headerStr += "1";
-    } else if (this.compression === false) {
-      headerStr += "0";
-    }
-    if (this.base) {
-      headerStr += this.base; // base64 or base128 or base256
-    }
-    headerStr += this.blkSize;
-
-    return headerStr;
-  }
-  getFormattedDate() {
-    if (this.fileModifiedTime) {
-      return moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT);
-    }
-    // Use current time if no file time.
-    return moment().format(MODIFIED_TIME_FORMAT);
-  }
-  buildHashString(chunkOrHtype?: string) {
-    let hash = this.headerStringHash;
-    if (chunkOrHtype) {
-      hash += `:${chunkOrHtype}`;
-    }
-    return `{${hash}}`;
   }
 
   quantizeMessage() {
@@ -298,7 +253,7 @@ export class Amp {
     let blockNum = 1;
     let start = 0;
     while (start < actualBuffer.length) {
-      let block = new Block(LTypes.DATA, this.headerStringHash, actualBuffer.slice(start, start + this.blkSize), blockNum);
+      let block = new Block(LTypes.DATA, this.hash, actualBuffer.slice(start, start + this.blkSize), blockNum);
       this.blocks[blockNum] = block;
       start += this.blkSize;
       blockNum++;
