@@ -259,9 +259,36 @@ export class Deamp {
     this.inputBuffer = '';
   }
 
+  pruneInputBuffer() {
+    let buffer = this.inputBuffer;
+    let lookAgain = true;
+
+    while (lookAgain) {
+      lookAgain = false;
+      let firstBracket = buffer.indexOf('<');
+      if (firstBracket > -1) {
+        // Discard everything up to the first bracket
+        buffer = buffer.substr(firstBracket);
+        let closeBracket = buffer.indexOf('>', 1);
+        if (closeBracket < 0 || closeBracket > 30) {
+          // This isn't a valid block
+          buffer = buffer.substr(1); // Drop the bracket, try again
+          lookAgain = true;
+        }
+      } else {
+        buffer = '';
+      }
+    }
+    // If it isn't in the last 300 characters then it's not going to be used
+    this.inputBuffer = buffer.substr(-300);
+  }
+
   ingestString(inString: string) {
     this.inputBuffer += inString;
     this.lookForBlocks();
+    if (this.inputBuffer.length > 100) {
+      this.pruneInputBuffer();
+    }
     return;
   }
 
@@ -279,6 +306,9 @@ export class Deamp {
 
         if (this.inputBuffer.indexOf(LTypes[ltype]) === -1) { break; }
       }
+    }
+    if (this.inputBuffer.length > 500) {
+      this.pruneInputBuffer();
     }
   }
 
