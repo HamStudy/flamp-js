@@ -1,4 +1,5 @@
 
+import { crc16 } from './crc16';
 import {
   Amp
 } from './amp';
@@ -21,14 +22,20 @@ let testFile = `bib,time in,time out
 
 test("Create an AMP instance and do stuff", () => {
   const blkSize = 64;
+  const filename = "testFile.txt";
+  const fileModifiedTime = new Date("2019-06-02T06:53:28.452Z");
   let amp = new Amp({
     blkSize: 64,
     compression: false,
-    filename: "testFile.txt",
-    fileModifiedTime: new Date(),
+    filename: filename,
+    fileModifiedTime: fileModifiedTime,
     inputBuffer: testFile
   });
   let ampString  = amp.toString();
+  expect(amp.hash).toEqual('6074')
+  expect((amp as any).filename).toEqual(filename);
+  expect((amp as any).fileModifiedTime).toEqual(fileModifiedTime);
+  expect((amp as any).blkSize).toEqual(blkSize);
 
   expect(amp).toBeTruthy();
 

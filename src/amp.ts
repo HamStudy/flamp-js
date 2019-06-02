@@ -117,7 +117,7 @@ export class Amp {
     this.fromCallsign = opts.fromCallsign || null;
     this.toCallsign = opts.toCallsign || null;
     this.filename = opts.filename;
-    this.fileModifiedTime = opts.fileModifiedTime || new Date();
+    this.fileModifiedTime = opts.fileModifiedTime;
     this.blkSize = opts.blkSize;
     this.compression = opts.compression || false;
     this.forceCompress == !!opts.forceCompress;
