@@ -2,15 +2,11 @@ import { LTypes, ControlWord } from './amp';
 import { crc16 } from './crc16';
 
 export class Block { // Protocol Block
-  static fromBuffer(keyword: LTypes, buffer: string): Block | null {
-    let ltype = keyword;
 
-    // Parse the block info
-    let blockToken = `<${ltype} `;
-    let blockStart = buffer.indexOf(blockToken);
-    if (blockStart < -1) { return null; }
-    // Blocks should never be bigger than this, so to keep searches sane...
-    buffer = buffer.substring(blockStart, blockStart + 500);
+  private static decodeBlock(keyword: LTypes, buffer: string): Block | null {
+    // The block starts at the beginning of the buffer
+    let blockToken = `<${keyword} `;
+
     let lengthEnd = buffer.indexOf(' ', blockToken.length);
     if (lengthEnd < -1) { return null; }
     let byteCount = parseInt(buffer.substring(blockToken.length, lengthEnd + 1), 10);
@@ -52,6 +48,28 @@ export class Block { // Protocol Block
     } catch (e) {
       console.error(e);
     }
+    return null;
+  }
+  static fromBuffer(keyword: LTypes, buffer: string): Block | null {
+
+    // Parse the block info
+    let blockToken = `<${keyword} `;
+    
+    let blockStart: number;
+    while ((blockStart = buffer.indexOf(blockToken)) > -1) {
+      // as long as we've found something that looks like it could be our
+      // block...
+      let tmpBuffer = buffer.substr(blockStart, 500); // 500 should be *plenty*
+      let block = this.decodeBlock(keyword, tmpBuffer);
+      if (block) {
+        return block;
+      } else {
+        // Discard this one, try again
+        buffer = buffer.substr(blockStart + blockToken.length);
+      }
+    }
+    
+    // If we got here there weren't none to find
     return null;
   }
 

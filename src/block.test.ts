@@ -87,3 +87,29 @@ test("Parsing blocks", () => {
 });
 
 // TODO: Add tests to verify that bad blocks are rejected!
+
+const badTestData = [
+  "<DATA 75 23C5<FILE 29 A7F3>{568B}20190531220700:edcT.csvfdsafdsfdjklfdsafdsa",
+  // (note that this block below is bad; I changed a character so the checksum would fail)
+  "<DATA 75 CE16>{568B:1800}~N;_~qoNIC|`@XsT})>{&k1Z_n.H&IlD_%>v}#RJ_.&nKl>&,KqyXb~l2(Rz}Zi8",
+  "<DATA 74 946C>{568B:359}qZ~D8C|@?|s#]H|7sb~g1iUI.Xs6|)>,!buHsC|1@|sp}zh4DM_s(!rinr>REM|Z",
+  "<DATA 74 5A98>{568B:552}#v}&_M(d.E&uT8~(._~oe`c1Ix}aPD_=:_~${s(v#v(Xs<|(h6.E8NCC|:[|s/qk",
+];
+
+test("bad data handling", () => {
+  let buffer = badTestData.join('\n');
+
+  let block: ReturnType<typeof Block.fromBuffer>;
+
+  [block, buffer] = getBlockFrom(LTypes.FILE, buffer);
+  expect(block).toBeTruthy();
+  expect(block.data).toEqual("20190531220700:edcT.csv");
+
+  [block, buffer] = getBlockFrom(LTypes.FILE, buffer);
+  expect(block).toBeFalsy();
+
+  // It should not have any the bad partial data block and snag the next one
+  [block, buffer] = getBlockFrom(LTypes.DATA, buffer);
+  expect(block).toBeTruthy();
+  expect(block.blockNum).toEqual(359);
+});
