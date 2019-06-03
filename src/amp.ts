@@ -166,7 +166,6 @@ export class Amp {
       ControlWord.EOF,
       ControlWord.EOT
     ]) {
-    // for (let key of Object.keys(this.blocks)) {
       if (
         (key === LTypes.PROG && this.skipProgram)
         || (key === LTypes.ID && !this.fromCallsign)
@@ -179,7 +178,7 @@ export class Amp {
       }
 
       if (key === LTypes.DATA) {
-        for (let idx of blockList && blockList.sort() || [...Array(this.dataBlockCount).keys()]) {
+        for (let idx of (blockList && blockList.sort() || [...Array(this.dataBlockCount).keys()].map(i => i+1))) {
           if (this.blocks[idx]) {
             blockStrings.push(this.blocks[idx].toString());
           }
