@@ -25,6 +25,16 @@ import { TypedEvent } from './TypedEvent';
 
 let crc16 = crc16JS;
 
+enum ParserState {
+  LOOKFORBLOCK,
+  BLOCKTAG,
+  DATA
+};
+
+function bad(b: never) : never {
+  throw new Error("Invalid state!");
+}
+
 export interface NewFileEvent {
   /** This is the only thing guaranteed on this event */
   hash: string;
@@ -236,9 +246,20 @@ export interface Files {
   [K: string]: File;
 }
 
+const BlockTagValidChars = /^[A-Z0-9 ]$/;
+const BlockTagRegex = /^([A-Za-z]+) ([0-9]+) ([0-9A-Fa-f]+)$/;
+
 export class Deamp {
   private PROGRAM = "JSAMP";
   private VERSION = "0.0.1";
+
+  private parserState = ParserState.LOOKFORBLOCK;
+  private parserData = {
+    dataStart: 0,
+    dataLen: 0,
+    checksum: "",
+    tagname: LTypes.ID,
+  };
 
   // Fields used in receiving.
 
@@ -284,31 +305,106 @@ export class Deamp {
   }
 
   ingestString(inString: string) {
-    this.inputBuffer += inString;
-    this.lookForBlocks();
-    if (this.inputBuffer.length > 100) {
-      this.pruneInputBuffer();
+    for (let char of inString.split('')) {
+      let block = this._processInput(char);
+      if (block) {
+        this.addBlockToFiles(block);
+      }
     }
     return;
   }
 
-  lookForBlocks(): void {
-    for (let key in LTypes) {
-      let ltype = LTypes[key] as LTypes;
-      if (this.inputBuffer.indexOf(LTypes[ltype]) === -1) { continue; }
-      let block: ReturnType<typeof Block.fromBuffer>;
-      while (block = Block.fromBuffer(ltype, this.inputBuffer)) {
-        this.addBlockToFiles(block);
-        let blockBufferIdx = this.inputBuffer.indexOf(block.toString());
-        let s1 = this.inputBuffer.substring(0, blockBufferIdx);
-        let s2 = this.inputBuffer.substring(blockBufferIdx + block.toString().length);
-        this.inputBuffer = s1 + s2;
+  // Left intentionally public to allow us to test it separately
+  _processInput(oneChar: string) : Block | undefined {
+    switch(this.parserState) {
+      case ParserState.LOOKFORBLOCK:
+        // Default state, we haven't found anything yet
+        if (oneChar == '<') {
+          // Hey, this could be the start of a beautiful tag!
+          this.inputBuffer = oneChar;
+          this.parserState = ParserState.BLOCKTAG;
+        }
+        break;
+      case ParserState.BLOCKTAG:
+        // We might be inside a block, so we're looking for
+        // useful things
+        if (BlockTagValidChars.test(oneChar)) {
+          // This is something which could very well go inside a block tag! Way cool!
+          this.inputBuffer += oneChar;
+          if (this.inputBuffer.length > 25) {
+            // Seriously, if we're 25 characters in with no > there is no way
+            // this is a real tag, so let's just drop out and try again
+            this.inputBuffer = "";
+            this.parserState = ParserState.LOOKFORBLOCK;
+          }
+        } else if (oneChar == '>') {
+          // Hey, we've found the end of the block tag; wonder what it is and if it is valid?
+          let blockTagContent = this.inputBuffer.substring(1);
+          let search = BlockTagRegex.exec(blockTagContent);
+          if (search && Object.values(LTypes).indexOf(search[1].toUpperCase()) > -1) {
+            // Hey, this might actually be a real tag!
+            this.parserData.tagname = search[1].toUpperCase() as LTypes;
+            let dataLen = this.parserData.dataLen = parseInt(search[2], 10);
+            let checksum = this.parserData.checksum = search[3];
+            if (isNaN(dataLen) || checksum.length != 4) {
+              // Oops, malformed!
+              this.parserState = ParserState.LOOKFORBLOCK;
+              this.inputBuffer = "";
+              return;
+            }
 
-        if (this.inputBuffer.indexOf(LTypes[ltype]) === -1) { break; }
-      }
-    }
-    if (this.inputBuffer.length > 500) {
-      this.pruneInputBuffer();
+            this.inputBuffer += '>';
+            this.parserData.dataStart = this.inputBuffer.length;
+            this.parserState = ParserState.DATA;
+          } else {
+            // Not a valid tag! Discard and go back to the old state
+            this.inputBuffer = "";
+            this.parserState = ParserState.LOOKFORBLOCK;
+          }
+        } else {
+          // This isn't a close tag and it's not valid for inside a block,
+          // so the block we're "in" is just a sad, sad illusion. Drop back
+          // but make sure we process this char in case it's the beginning of
+          // a real block
+          this.parserState = ParserState.LOOKFORBLOCK;
+          return this._processInput(oneChar);
+        }
+        break;
+      case ParserState.DATA:
+        // We've got a potentially valid block and we know how long it is,
+        // and we haven't reached the end yet
+        this.inputBuffer += oneChar;
+
+        // Check to see if that takes us to the end or not
+        let dataLen = this.inputBuffer.length - this.parserData.dataStart;
+        if (dataLen == this.parserData.dataLen) {
+          // We have received a full block! (well, maybe... let's double check)
+          let data = this.inputBuffer.substr(this.parserData.dataStart, dataLen);
+          let block = new Block(
+            this.parserData.tagname,
+            data);
+          if (block.checksum != this.parserData.checksum) {
+            // We got the block and checked it and .... it was bad.
+            // Oops.
+            // Well, toss this one and try again -- but keep in mind
+            // that we might actually need something from the data!
+            this.parserState = ParserState.LOOKFORBLOCK;
+            this.inputBuffer = "";
+
+            if (data.indexOf('<')) {
+              // There might be another block in there!
+              this.ingestString(data.substr(data.indexOf('<')));
+            }
+          } else {
+            // Sweet! We found a complete block. Reset and continue!
+            this.inputBuffer = "";
+            this.parserState = ParserState.LOOKFORBLOCK;
+            return block;
+          }
+        }
+        break;
+      default:
+        return bad(this.parserState);
     }
   }
 

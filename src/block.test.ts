@@ -2,9 +2,11 @@
 import {Block} from './block';
 import { LTypes } from './amp';
 
+import { Deamp } from './deamp';
+
 test("Creating a block", () => {
   const testHash = 'ABEF'; // placeholder for the test
-  let block = new Block(LTypes.SIZE, testHash, "1045 17 64");
+  let block = new Block(LTypes.SIZE, "{ABEF}1045 17 64");
 
   expect(block.toString()).toEqual("<SIZE 16 7C74>{ABEF}1045 17 64");
 });
@@ -36,23 +38,27 @@ const testBlockInfo = [
   {size: 75, num: 2056},
 ];
 
-function getBlockFrom(ltype: LTypes, buffer: string) : [Block, string] {
-  let block = Block.fromBuffer(ltype, buffer) as Block;
-  if (!block) {
-    return [null as any, buffer];
+function getBlockFrom(buffer: string) : [Block, string] {
+  let deamp = new Deamp();
+  let block: Block | undefined;
+  let bufferChars = buffer.split('');
+  while (!block && bufferChars.length) {
+    let char = bufferChars.shift() as string;
+    block = deamp._processInput(char);
   }
-  let blockBufferIdx = buffer.indexOf(block.toString());
-  let s1 = buffer.substring(0, blockBufferIdx);
-  let s2 = buffer.substring(blockBufferIdx + block.toString().length);
-  return [block, s1 + s2];
+  if (!block) {
+    return [null as any, ""];
+  }
+
+  return [block, bufferChars.join('')];
 }
 
 test("Parsing blocks", () => {
   let buffer = blockTestData.join('\n');
 
-  let block: ReturnType<typeof Block.fromBuffer>;
+  let block: Block|undefined;
 
-  [block, buffer] = getBlockFrom(LTypes.FILE, buffer);
+  [block, buffer] = getBlockFrom(buffer);
   expect(block).toBeTruthy();
 
   expect(block.keyword).toEqual(LTypes.FILE);
@@ -60,26 +66,22 @@ test("Parsing blocks", () => {
   expect(block.byteCount).toBe(29);
   expect(block.hash).toEqual("568B");
 
-  [block, buffer] = getBlockFrom(LTypes.FILE, buffer);
-  expect(block).toBeFalsy();
-
-  [block, buffer] = getBlockFrom(LTypes.SIZE, buffer);
+  [block, buffer] = getBlockFrom(buffer);
   expect(block).toBeTruthy();
+  expect(block.keyword).toEqual("SIZE");
   expect(block.data).toEqual("146796 2294 64");
   expect(block.byteCount).toBe(20);
   expect(block.hash).toEqual("568B");
-
-  [block, buffer] = getBlockFrom(LTypes.SIZE, buffer);
-  expect(block).toBeFalsy();
 
   for (let i = 0; i < testBlockInfo.length; ++i) {
     let blockInfo = testBlockInfo[i];
     let srcLine = blockTestData[testDataBlockOffset + i];
     let srcData = srcLine.substr(srcLine.indexOf('}') + 1);
 
-    [block, buffer] = getBlockFrom(LTypes.DATA, buffer);
+    [block, buffer] = getBlockFrom(buffer);
     expect(block).toBeTruthy();
 
+    expect(block.keyword).toEqual("DATA");
     expect(block.data).toEqual(srcData);
     expect(block.byteCount).toEqual(blockInfo.size);
     expect(block.blockNum).toEqual(blockInfo.num);
@@ -99,17 +101,15 @@ const badTestData = [
 test("bad data handling", () => {
   let buffer = badTestData.join('\n');
 
-  let block: ReturnType<typeof Block.fromBuffer>;
+  let block: Block|undefined;
 
-  [block, buffer] = getBlockFrom(LTypes.FILE, buffer);
+  [block, buffer] = getBlockFrom(buffer);
   expect(block).toBeTruthy();
+  expect(block.keyword).toEqual("FILE");
   expect(block.data).toEqual("20190531220700:edcT.csv");
 
-  [block, buffer] = getBlockFrom(LTypes.FILE, buffer);
-  expect(block).toBeFalsy();
-
   // It should not have any the bad partial data block and snag the next one
-  [block, buffer] = getBlockFrom(LTypes.DATA, buffer);
+  [block, buffer] = getBlockFrom(buffer);
   expect(block).toBeTruthy();
   expect(block.blockNum).toEqual(359);
 });

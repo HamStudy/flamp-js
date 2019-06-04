@@ -135,12 +135,12 @@ export class Amp {
 
     this.dataBlockCount = this.quantizeMessage();
 
-    this.blocks[LTypes.PROG] = new Block(LTypes.PROG, this.hash, `${this.PROGRAM} ${this.VERSION}`);
-    this.blocks[LTypes.FILE] = new Block(LTypes.FILE, this.hash, `${moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT)}:${this.filename}`);
-    this.blocks[LTypes.ID] = new Block(LTypes.ID, this.hash, this.fromCallsign || '');
-    this.blocks[LTypes.SIZE] = new Block(LTypes.SIZE, this.hash, `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`);
-    this.blocks[ControlWord.EOF] = new Block(LTypes.CNTL, this.hash, ControlWord.EOF);
-    this.blocks[ControlWord.EOT] = new Block(LTypes.CNTL, this.hash, ControlWord.EOT);
+    this.blocks[LTypes.PROG] = Block.MakeBlock({keyword: LTypes.PROG, hash: this.hash, data: `${this.PROGRAM} ${this.VERSION}`});
+    this.blocks[LTypes.FILE] = Block.MakeBlock({keyword: LTypes.FILE, hash: this.hash, data: `${moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT)}:${this.filename}`});
+    this.blocks[LTypes.ID] = Block.MakeBlock({keyword: LTypes.ID, hash: this.hash, data: this.fromCallsign || ''});
+    this.blocks[LTypes.SIZE] = Block.MakeBlock({keyword: LTypes.SIZE, hash: this.hash, data: `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`});
+    this.blocks[ControlWord.EOF] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOF});
+    this.blocks[ControlWord.EOT] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOT});
   }
 
   toString(blockList?: number[], includeHeaders = true) {
@@ -252,7 +252,11 @@ export class Amp {
     let blockNum = 1;
     let start = 0;
     while (start < actualBuffer.length) {
-      let block = new Block(LTypes.DATA, this.hash, actualBuffer.slice(start, start + this.blkSize), blockNum);
+      let block = Block.MakeBlock({
+        keyword: LTypes.DATA,
+        hash: this.hash,
+        data: actualBuffer.slice(start, start + this.blkSize),
+        blockNum});
       this.blocks[blockNum] = block;
       start += this.blkSize;
       blockNum++;
