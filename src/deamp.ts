@@ -246,7 +246,7 @@ export interface Files {
   [K: string]: File;
 }
 
-const BlockTagValidChars = /^[A-Z0-9 ]$/;
+const BlockTagValidChars = /^[A-Za-z0-9 ]$/;
 const BlockTagRegex = /^([A-Za-z]+) ([0-9]+) ([0-9A-Fa-f]+)$/;
 
 export class Deamp {
@@ -302,6 +302,13 @@ export class Deamp {
     }
     // If it isn't in the last 300 characters then it's not going to be used
     this.inputBuffer = buffer.substr(-300);
+  }
+
+  /**
+   * This should only be called for unit tests
+   */
+  __getInputBuffer() {
+    return this.inputBuffer;
   }
 
   ingestString(inString: string) {
@@ -366,6 +373,7 @@ export class Deamp {
           // so the block we're "in" is just a sad, sad illusion. Drop back
           // but make sure we process this char in case it's the beginning of
           // a real block
+          this.inputBuffer = "";
           this.parserState = ParserState.LOOKFORBLOCK;
           return this._processInput(oneChar);
         }
