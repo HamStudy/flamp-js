@@ -20,6 +20,7 @@ import  *  as lzma from './lzma';
 import * as base91 from './base91';
 import * as base64 from './base64';
 import { TypedEvent } from './TypedEvent';
+import { Compressor } from './compressor';
 
 (window as any).moment = moment;
 
@@ -158,9 +159,9 @@ export class File {
           break;
       }
     }
-    if (content.startsWith(lzmaCompressedPrefix)) {
-      let lzmaContent = content.substring(lzmaCompressedPrefix.length);
-      content = lzma.decodeSync(lzmaContent);
+    let c = Compressor.getDecompressor(content);
+    if (c) {
+      content = c.decompress(content);
     }
     return content;
   }

@@ -12,6 +12,8 @@ import moment from 'moment';
 import { Block } from './block';
 import { crc16 } from './crc16';
 
+import { Compressor }  from './compressor';
+
 import * as base91 from './base91';
 import * as base64 from './base64';
 import * as lzma from './lzma';
@@ -212,8 +214,8 @@ export class Amp {
 
     // Apply compression if any
     if (this.compression === CompressionType.LZMA) {
-      let newBuffer = lzmaCompressedPrefix;
-      newBuffer += lzma.encodeSync(actualBuffer, 2);
+      let c = Compressor.getCompressor(); // get the default compressor
+      let newBuffer = c.compress(actualBuffer);
       if (newBuffer.length < actualBuffer.length - 200) {
         // If compression doesn't save us at least 200 bytes it's not worth while
         actualBuffer = newBuffer;
