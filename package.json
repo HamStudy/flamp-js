@@ -1,6 +1,6 @@
 {
   "name": "@hamstudy/flamp",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "author": "HamStudy.org LLC",
   "license": "SEE LICENSE IN LICENSE",
   "description": "",
@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p . && cp src/*.js dist/",
     "clean": "rm -rf dist/",
+    "prepublish": "rm -rfv dist/*.test.*",
     "test": "jest"
   },
   "repository": {
