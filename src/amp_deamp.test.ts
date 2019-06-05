@@ -130,7 +130,7 @@ test("Compressed base91 file amp and deamp", () => {
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
-  expect(onFileUpdateFn).toHaveBeenCalledTimes(6);
+  expect(onFileUpdateFn).toHaveBeenCalledTimes(7);
   expect(onFileUpdateFn).toHaveBeenLastCalledWith({
     blockCount: blockCount,
     blockSize: 64,

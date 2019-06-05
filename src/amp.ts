@@ -122,7 +122,7 @@ export class Amp {
     this.fileModifiedTime = opts.fileModifiedTime;
     this.blkSize = opts.blkSize;
     this.compression = opts.compression || false;
-    this.forceCompress == !!opts.forceCompress;
+    this.forceCompress = !!opts.forceCompress;
 
     this.skipProgram = !!opts.skipProgram;
     this.useEOF = opts.useEOF !== false;
@@ -217,7 +217,7 @@ export class Amp {
       let c = Compressor.getCompressor(); // get the default compressor
       try {
         let newBuffer = c.compress(actualBuffer);
-        if (newBuffer.length < actualBuffer.length - 200) {
+        if (newBuffer.length < actualBuffer.length - 200 && !this.forceCompress) {
           // If compression doesn't save us at least 200 bytes it's not worth while
           actualBuffer = newBuffer;
         }
