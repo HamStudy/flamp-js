@@ -126,7 +126,7 @@ export class File {
   getNeededBlocks() : number[] {
     let blocks = this.getOrderedDataBlocks();
 
-    return Object.keys(blocks).map(b => (blocks[Number(b)] ? null : b)).filter(b => !!b) as any;
+    return Object.keys(blocks).map(b => (blocks[Number(b)] ? 0 : Number(b)+1)).filter(b => !!b);
   }
   getRawContent() {
     if (!this.blockCount) {
