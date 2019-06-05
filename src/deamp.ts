@@ -141,10 +141,6 @@ export class File {
   }
   getContent() {
     let content = this.getRawContent();
-    if (content.length !== this.size) {
-      console.error('File size is not correct', content.length, this.size);
-      return null;
-    }
 
     if (content.startsWith('[b') && content.endsWith(':end]')) {
       let endOfStart = content.indexOf(']') + 1;
@@ -162,6 +158,10 @@ export class File {
     let c = Compressor.getDecompressor(content);
     if (c) {
       content = c.decompress(content);
+    }
+    if (content.length !== this.size) {
+      console.error('File size is not correct', content.length, this.size);
+      return null;
     }
     return content;
   }
