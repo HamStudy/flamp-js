@@ -215,10 +215,14 @@ export class Amp {
     // Apply compression if any
     if (this.compression === CompressionType.LZMA) {
       let c = Compressor.getCompressor(); // get the default compressor
-      let newBuffer = c.compress(actualBuffer);
-      if (newBuffer.length < actualBuffer.length - 200) {
-        // If compression doesn't save us at least 200 bytes it's not worth while
-        actualBuffer = newBuffer;
+      try {
+        let newBuffer = c.compress(actualBuffer);
+        if (newBuffer.length < actualBuffer.length - 200) {
+          // If compression doesn't save us at least 200 bytes it's not worth while
+          actualBuffer = newBuffer;
+        }
+      } catch(e) {
+        console.error('Compression failed, continuing without compression', e);
       }
       if (!this.base) {
         // If we compreessed then we need to base encode it
