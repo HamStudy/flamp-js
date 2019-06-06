@@ -154,9 +154,9 @@ export class Amp {
     } else if (this.toCallsign) {
       preProtocolHeaders = `${this.toCallsign} ${this.toCallsign} DE ME\n\n`;
     } else if (this.fromCallsign) {
-      preProtocolHeaders = `QST QST QST DE ${this.fromCallsign}\n\n`;
+      preProtocolHeaders = `QST DE ${this.fromCallsign}\n\n`;
     } else {
-      preProtocolHeaders = "QST QST QST\n\n";
+      preProtocolHeaders = "QST\n\n";
     }
     // Looping through the keywords in a specific order to build the output string
     for (let key of [
@@ -189,7 +189,7 @@ export class Amp {
     }
     if (includeHeaders) {
       blockStrings.unshift(preProtocolHeaders);
-      blockStrings.push(preProtocolHeaders);
+      // blockStrings.push(preProtocolHeaders);
     }
     return blockStrings.join('\n');
   }
