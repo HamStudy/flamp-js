@@ -2,11 +2,12 @@
   "compileOnSave": true,
   "compilerOptions": {
     "outDir": "dist",
-    "target": "esnext",
+    "target": "es5",
     "lib": ["esnext", "dom"],
     "module": "commonjs",
     "strict": true,
     "declaration": true,
+    "downlevelIteration": true,
     "importHelpers": true,
     "emitDecoratorMetadata": true,
     "noImplicitAny": true,
