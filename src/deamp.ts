@@ -103,6 +103,7 @@ export class File {
   fromCallsign: string | null = null;
   headerBlocks: Block[] = [];
   dataBlock: {[blockNum: number]: Block|undefined} = {};
+  description?: string;
   name?: string;
   size?: number;
   blockCount?: number;
@@ -191,6 +192,9 @@ export class File {
       case LTypes.FILE:
         this.name = inBlock.data.substring(15);
         this.modified = moment(inBlock.data.substr(0, 14), MODIFIED_TIME_FORMAT).toDate();
+        break;
+      case LTypes.DESC:
+        this.description = inBlock.data;
         break;
       case LTypes.ID:
         this.fromCallsign = inBlock.data;

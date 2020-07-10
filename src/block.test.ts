@@ -15,6 +15,7 @@ const blockTestData = [
   "QST QST QST",
   "<FILE 29 A7F3>{568B}20190531220700:edcT.csv",
   "<SIZE 20 E0D5>{568B}146796 2294 64",
+  "<DESC 25 F469>{568B}This is a test file",
   "<DATA 75 23C5>{568B:1147}gC_Sb8&Nqa_Dh1}#QD_}/v};`M(8HvzO>qP2Jw&7$X_?@G&^U8~=:CbZ~%&C|]he",
   "<DATA 74 946C>{568B:359}qZ~D8C|@?|s#]H|7sb~g1iUI.Xs6|)>,!buHsC|1@|sp}zh4DM_s(!rinr>REM|Z",
   "<DATA 74 5A98>{568B:552}#v}&_M(d.E&uT8~(._~oe`c1Ix}aPD_=:_~${s(v#v(Xs<|(h6.E8NCC|:[|s/qk",
@@ -25,7 +26,7 @@ const blockTestData = [
   "<DATA 75 1DE1>{568B:2056}}=G8~^Yi&nIa_%HI,f>}lat0<uW{Rfq,Qy>J&Uv_~2_M(@r?Qy>IVL|pCb~56#qi",
 ];
 
-const testDataBlockOffset = 3;
+const testDataBlockOffset = 4;
 
 const testBlockInfo = [
   {size: 75, num: 1147},
@@ -71,6 +72,13 @@ test("Parsing blocks", () => {
   expect(block.keyword).toEqual("SIZE");
   expect(block.data).toEqual("146796 2294 64");
   expect(block.byteCount).toBe(20);
+  expect(block.hash).toEqual("568B");
+
+  [block, buffer] = getBlockFrom(buffer);
+  expect(block).toBeTruthy();
+  expect(block.keyword).toEqual(LTypes.DESC);
+  expect(block.data).toEqual("This is a test file");
+  expect(block.byteCount).toBe(25);
   expect(block.hash).toEqual("568B");
 
   for (let i = 0; i < testBlockInfo.length; ++i) {

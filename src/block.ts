@@ -2,7 +2,7 @@ import { LTypes, ControlWord } from './amp';
 import { crc16 } from './crc16';
 
 interface MakeBlockStandardOptions {
-  keyword: LTypes.PROG | LTypes.FILE | LTypes.ID | LTypes.SIZE;
+  keyword: LTypes.PROG | LTypes.FILE | LTypes.ID | LTypes.SIZE | LTypes.DESC;
   hash: string;
   data: string;
 }

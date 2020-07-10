@@ -60,6 +60,7 @@ export interface IOptions {
   fromCallsign?: string;
   toCallsign?: string;
   filename: string;
+  fileDescription?: string;
   fileModifiedTime: Date;
   inputBuffer: string;
   blkSize: number;
@@ -83,6 +84,7 @@ export class Amp {
   fromCallsign: string | null;
   toCallsign: string | null;
   filename: string;
+  fileDescription: string;
   fileModifiedTime: Date;
   inputBuffer: string;
   blkSize: number;
@@ -95,8 +97,9 @@ export class Amp {
   private forceCompress = false;
   blocks: {
     [LTypes.PROG]?: Block;
-    [LTypes.FILE]?: Block;
     [LTypes.ID]?: Block;
+    [LTypes.FILE]?: Block;
+    [LTypes.DESC]?: Block;
     [LTypes.SIZE]?: Block;
     [key: number]: Block; // Data blocks
     [ControlWord.EOF]?: Block;
@@ -118,6 +121,7 @@ export class Amp {
     this.fromCallsign = opts.fromCallsign || null;
     this.toCallsign = opts.toCallsign || null;
     this.filename = opts.filename;
+    this.fileDescription = opts.fileDescription || '';
     this.fileModifiedTime = opts.fileModifiedTime;
     this.blkSize = opts.blkSize;
     this.compression = opts.compression || false;
@@ -134,11 +138,17 @@ export class Amp {
 
     this.hash = Amp.getHash(this.filename, this.fileModifiedTime, !!this.compression, this.base, this.blkSize);
 
+    this.makeBlocks();
+  }
+
+  makeBlocks() {
+    this.blocks = {};
     this.dataBlockCount = this.quantizeMessage();
 
     this.blocks[LTypes.PROG] = Block.MakeBlock({keyword: LTypes.PROG, hash: this.hash, data: `${this.PROGRAM} ${this.VERSION}`});
     this.blocks[LTypes.FILE] = Block.MakeBlock({keyword: LTypes.FILE, hash: this.hash, data: `${moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT)}:${this.filename}`});
     this.blocks[LTypes.ID] = Block.MakeBlock({keyword: LTypes.ID, hash: this.hash, data: this.fromCallsign || ''});
+    this.blocks[LTypes.DESC] = Block.MakeBlock({keyword: LTypes.DESC, hash: this.hash, data: this.fileDescription || ''});
     this.blocks[LTypes.SIZE] = Block.MakeBlock({keyword: LTypes.SIZE, hash: this.hash, data: `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`});
     this.blocks[ControlWord.EOF] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOF});
     this.blocks[ControlWord.EOT] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOT});
