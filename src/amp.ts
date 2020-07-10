@@ -79,22 +79,21 @@ export class Amp {
     // | = Field separator.
     let DTS = moment(modified).format(MODIFIED_TIME_FORMAT);
     return crc16(`${DTS}:${filename}${compressed ? '1' : '0'}${baseConversion}${blockSize}`);
-
   }
-  private fromCallsign: string | null;
-  private toCallsign: string | null;
-  private filename: string;
-  private fileModifiedTime: Date;
-  private inputBuffer: string;
-  private blkSize: number;
+  fromCallsign: string | null;
+  toCallsign: string | null;
+  filename: string;
+  fileModifiedTime: Date;
+  inputBuffer: string;
+  blkSize: number;
 
-  private PROGRAM = "JSAMP";
-  private VERSION = "0.0.1";
+  PROGRAM = "JSAMP";
+  VERSION = "0.0.1";
 
-  private base: '' | BaseEncode = "";
-  private compression: CompressionType | false = false;
+  base: '' | BaseEncode = "";
+  compression: CompressionType | false = false;
   private forceCompress = false;
-  private blocks: {
+  blocks: {
     [LTypes.PROG]?: Block;
     [LTypes.FILE]?: Block;
     [LTypes.ID]?: Block;
