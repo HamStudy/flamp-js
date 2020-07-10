@@ -50,7 +50,6 @@ function assertUnreachable(x: never): never {
 export enum LTypes {
   FILE = "FILE",
   ID = "ID",
-  DTTM = "DTTM",
   SIZE = "SIZE",
   DESC = "DESC",
   DATA = "DATA",
@@ -87,6 +86,67 @@ export interface IOptions {
 }
 
 export class Amp {
+  static toString(blocks: Amp['blocks'], fromCallsign = '', toCallsign = '') {
+    if (!Object.keys(blocks || {}).length) { return ''; }
+    let preProtocolHeaders: string;
+    if (toCallsign && fromCallsign) {
+      preProtocolHeaders = `${toCallsign} DE ${fromCallsign}\n\n`;
+    } else if (toCallsign) {
+      preProtocolHeaders = `${toCallsign} DE ME\n\n`;
+    } else if (fromCallsign) {
+      preProtocolHeaders = `QST DE ${fromCallsign}\n\n`;
+    } else {
+      preProtocolHeaders = "QST\n\n";
+    }
+    const blockStrings: string[] = [];
+    if (preProtocolHeaders) { blockStrings.push(preProtocolHeaders); }
+
+    // Looping through the keywords in a specific order to build the output string
+    for (let key of [
+      LTypes.PROG,
+      LTypes.FILE,
+      LTypes.ID,
+      LTypes.SIZE,
+      LTypes.DESC,
+      LTypes.DATA,
+      ControlWord.EOF,
+      ControlWord.EOT
+    ]) {
+      if (key === LTypes.DATA) {
+        for (const k of Object.keys(blocks)) {
+          if (isNaN(Number(k))) { continue; }
+          const block = blocks[k as any as number];
+          blockStrings.push(block.toString());
+        }
+        continue;
+      }
+      let block = blocks[key as any];
+      if (key === LTypes.ID) {
+        if (!fromCallsign) { continue; }
+
+        if (!block || fromCallsign !== block.data) {
+          let hash = '';
+          if (block) {
+            hash = block.hash;
+          } else {
+            let k = Object.keys(blocks)[0];
+            if (k) {
+              hash = blocks[k as any].hash;
+            }
+          }
+          if (hash) {
+            block = Block.MakeBlock({keyword: LTypes.ID, hash, data: fromCallsign});
+          }
+        }
+      }
+      if (!block) { continue; }
+      blockStrings.push(block.toString());
+    }
+
+    if (fromCallsign) { blockStrings.push(fromCallsign); }
+    return blockStrings.join('\n');
+  }
+
   static getHash(filename: string, modified: Date, compressed: boolean, baseConversion: BaseEncode | '', blockSize: number) {
     // | DTS : FN |C| B |BS|
     // DTS = Date/Time Stamp
@@ -162,64 +222,41 @@ export class Amp {
     this.blocks = {};
     this.dataBlockCount = this.quantizeMessage();
 
-    this.blocks[LTypes.PROG] = Block.MakeBlock({keyword: LTypes.PROG, hash: this.hash, data: `${this.PROGRAM} ${this.VERSION}`});
+    if (!this.skipProgram) {
+      this.blocks[LTypes.PROG] = Block.MakeBlock({keyword: LTypes.PROG, hash: this.hash, data: `${this.PROGRAM} ${this.VERSION}`});
+    }
     this.blocks[LTypes.FILE] = Block.MakeBlock({keyword: LTypes.FILE, hash: this.hash, data: `${dateToString(this.fileModifiedTime)}:${this.filename}`});
-    this.blocks[LTypes.ID] = Block.MakeBlock({keyword: LTypes.ID, hash: this.hash, data: this.fromCallsign || ''});
-    this.blocks[LTypes.DESC] = Block.MakeBlock({keyword: LTypes.DESC, hash: this.hash, data: this.fileDescription || ''});
+    if (this.fromCallsign) {
+      this.blocks[LTypes.ID] = Block.MakeBlock({keyword: LTypes.ID, hash: this.hash, data: this.fromCallsign});
+    }
+    if (this.fileDescription) {
+      this.blocks[LTypes.DESC] = Block.MakeBlock({keyword: LTypes.DESC, hash: this.hash, data: this.fileDescription});
+    }
     this.blocks[LTypes.SIZE] = Block.MakeBlock({keyword: LTypes.SIZE, hash: this.hash, data: `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`});
-    this.blocks[ControlWord.EOF] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOF});
-    this.blocks[ControlWord.EOT] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOT});
+    if (this.useEOF) {
+      this.blocks[ControlWord.EOF] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOF});
+    }
+    if (this.useEOT) {
+      this.blocks[ControlWord.EOT] = Block.MakeBlock({keyword: LTypes.CNTL, hash: this.hash, controlWord: ControlWord.EOT});
+    }
   }
 
-  toString(blockList?: number[], includeHeaders = true) {
-    let blockStrings: string[] = [];
-
-    let preProtocolHeaders: string;
-    if (this.toCallsign && this.fromCallsign) {
-      preProtocolHeaders = `${this.toCallsign} ${this.toCallsign} DE ${this.fromCallsign}\n\n`;
-    } else if (this.toCallsign) {
-      preProtocolHeaders = `${this.toCallsign} ${this.toCallsign} DE ME\n\n`;
-    } else if (this.fromCallsign) {
-      preProtocolHeaders = `QST DE ${this.fromCallsign}\n\n`;
-    } else {
-      preProtocolHeaders = "QST\n\n";
-    }
-    // Looping through the keywords in a specific order to build the output string
-    for (let key of [
-      LTypes.PROG,
-      LTypes.FILE,
-      LTypes.ID,
-      LTypes.SIZE,
-      LTypes.DESC,
-      LTypes.DATA,
-      ControlWord.EOF,
-      ControlWord.EOT
-    ]) {
+  toString(dataBlockList?: number[], includeHeaders = true) {
+    const blocks: Amp['blocks'] = {};
+    for (const key of Object.keys(this.blocks)) {
       if (
-        (key === LTypes.PROG && this.skipProgram)
+        (isNaN(Number(key)) ? !includeHeaders : (!dataBlockList || dataBlockList.indexOf(Number(key)) === -1))
+        || (key === LTypes.PROG && this.skipProgram)
         || (key === LTypes.ID && !this.fromCallsign)
         || (key === LTypes.DESC && !this.fileDescription)
         || (key === ControlWord.EOF && !this.useEOF)
         || (key === ControlWord.EOT && !this.useEOT)
-      ) { continue; }
-
-      if ((!blockList || includeHeaders) && this.blocks[key as any]) {
-        blockStrings.push(this.blocks[key as any].toString());
+      ) {
+        continue;
       }
-
-      if (key === LTypes.DATA) {
-        for (let idx of (blockList && blockList.sort() || [...Array(this.dataBlockCount).keys()].map(i => i+1))) {
-          if (this.blocks[idx]) {
-            blockStrings.push(this.blocks[idx].toString());
-          }
-        }
-      }
+      blocks[key as any] = this.blocks[key as any];
     }
-    if (includeHeaders) {
-      blockStrings.unshift(preProtocolHeaders);
-      // blockStrings.push(preProtocolHeaders);
-    }
-    return blockStrings.join('\n');
+    return Amp.toString(blocks, this.fromCallsign || '', this.toCallsign || '');
   }
   getDataBlockCount() { return this.dataBlockCount; }
 
