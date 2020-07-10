@@ -10,10 +10,9 @@
 
 // tslint:disable:max-classes-per-file
 
-import moment from 'moment';
 import { Block } from './block';
 import { crc16 as crc16JS } from './crc16';
-import { LTypes, MODIFIED_TIME_FORMAT, lzmaCompressedPrefix } from './amp';
+import { LTypes, stringToDate, lzmaCompressedPrefix } from './amp';
 
 import  *  as lzma from './lzma';
 
@@ -21,8 +20,6 @@ import * as base91 from './base91';
 import * as base64 from './base64';
 import { TypedEvent } from './TypedEvent';
 import { Compressor } from './compressor';
-
-(window as any).moment = moment;
 
 let crc16 = crc16JS;
 
@@ -191,7 +188,7 @@ export class File {
     switch (inBlock.keyword) {
       case LTypes.FILE:
         this.name = inBlock.data.substring(15);
-        this.modified = moment(inBlock.data.substr(0, 14), MODIFIED_TIME_FORMAT).toDate();
+        this.modified = stringToDate(inBlock.data.substr(0, 14));
         break;
       case LTypes.DESC:
         this.description = inBlock.data;
@@ -241,7 +238,7 @@ export class File {
       // the name and the block count then WE ARE DONE!
       let needed = this.getNeededBlocks();
       return needed.length == 0;
-    } catch {
+    } catch (e) {
       return false;
     }
   }

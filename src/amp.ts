@@ -8,7 +8,6 @@
 // • Javascript Implementation by KV9G, Michael Stufflebeam cpuchip@gmail.com, 29 June 2018
 //
 
-import moment from 'moment';
 import { Block } from './block';
 import { crc16 } from './crc16';
 
@@ -19,7 +18,25 @@ import * as base64 from './base64';
 import * as lzma from './lzma';
 
 export const lzmaCompressedPrefix = '\u0001LZMA';
-export const MODIFIED_TIME_FORMAT = "YYYYMMDDHHmmss";
+export const MODIFIED_TIME_REGEX = /(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/;
+/**
+ * Takes a date and returns a string in format YYYYMMDDhhmmss
+*/
+export function dateToString(d: Date): string {
+  const year = d.getFullYear();
+  const month = (`0${d.getMonth()+1}`).slice(-2);
+  const day = (`0${d.getDate()}`).slice(-2);
+  const hours = (`0${d.getHours()}`).slice(-2);
+  const minutes = (`0${d.getMinutes()}`).slice(-2);
+  const seconds = (`0${d.getSeconds()}`).slice(-2);
+  return `${year}${month}${day}${hours}${minutes}${seconds}`;
+}
+/**
+ * Takes a string in format YYYYMMDDhhmmss and returns a date
+*/
+export function stringToDate(str: string): Date {
+  return new Date(str.replace(MODIFIED_TIME_REGEX, '$1-$2-$3T$4:$5:$6'));
+}
 
 const unprintableRegex = /[^ -~\n\r]+/;
 function hasNotPrintable(c: string) : boolean {
@@ -78,7 +95,7 @@ export class Amp {
     // B = Base Conversion (base64, base128, or base256)
     // BS = Block Size, 1 or more characters
     // | = Field separator.
-    let DTS = moment(modified).format(MODIFIED_TIME_FORMAT);
+    let DTS = dateToString(modified);
     return crc16(`${DTS}:${filename}${compressed ? '1' : '0'}${baseConversion}${blockSize}`);
   }
   fromCallsign: string | null;
@@ -146,7 +163,7 @@ export class Amp {
     this.dataBlockCount = this.quantizeMessage();
 
     this.blocks[LTypes.PROG] = Block.MakeBlock({keyword: LTypes.PROG, hash: this.hash, data: `${this.PROGRAM} ${this.VERSION}`});
-    this.blocks[LTypes.FILE] = Block.MakeBlock({keyword: LTypes.FILE, hash: this.hash, data: `${moment(this.fileModifiedTime).format(MODIFIED_TIME_FORMAT)}:${this.filename}`});
+    this.blocks[LTypes.FILE] = Block.MakeBlock({keyword: LTypes.FILE, hash: this.hash, data: `${dateToString(this.fileModifiedTime)}:${this.filename}`});
     this.blocks[LTypes.ID] = Block.MakeBlock({keyword: LTypes.ID, hash: this.hash, data: this.fromCallsign || ''});
     this.blocks[LTypes.DESC] = Block.MakeBlock({keyword: LTypes.DESC, hash: this.hash, data: this.fileDescription || ''});
     this.blocks[LTypes.SIZE] = Block.MakeBlock({keyword: LTypes.SIZE, hash: this.hash, data: `${this.inputBuffer.length} ${this.dataBlockCount} ${this.blkSize}`});
