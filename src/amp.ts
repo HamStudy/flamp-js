@@ -107,7 +107,7 @@ export class Amp {
   blkSize: number;
 
   PROGRAM = "JSAMP";
-  VERSION = "1.1.5";
+  VERSION = "1.1.6";
 
   base: '' | BaseEncode = "";
   compression: CompressionType | false = false;
