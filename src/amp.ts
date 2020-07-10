@@ -190,6 +190,7 @@ export class Amp {
       LTypes.FILE,
       LTypes.ID,
       LTypes.SIZE,
+      LTypes.DESC,
       LTypes.DATA,
       ControlWord.EOF,
       ControlWord.EOT
@@ -197,6 +198,7 @@ export class Amp {
       if (
         (key === LTypes.PROG && this.skipProgram)
         || (key === LTypes.ID && !this.fromCallsign)
+        || (key === LTypes.DESC && !this.fileDescription)
         || (key === ControlWord.EOF && !this.useEOF)
         || (key === ControlWord.EOT && !this.useEOT)
       ) { continue; }
