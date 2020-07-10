@@ -54,18 +54,18 @@ export enum CompressionType {
   LZMA = 'LZMA',
 }
 export interface IOptions {
-  compression?: CompressionType | false,
+  compression?: CompressionType | false;
   forceCompress?: boolean;
-  base?: BaseEncode,
-  fromCallsign?: string,
-  toCallsign?: string,
-  filename: string,
-  fileModifiedTime: Date,
-  inputBuffer: string,
-  blkSize: number,
-  skipProgram?: boolean,
-  useEOF?: boolean,
-  useEOT?: boolean,
+  base?: BaseEncode;
+  fromCallsign?: string;
+  toCallsign?: string;
+  filename: string;
+  fileModifiedTime: Date;
+  inputBuffer: string;
+  blkSize: number;
+  skipProgram?: boolean;
+  useEOF?: boolean;
+  useEOT?: boolean;
 }
 
 export class Amp {
