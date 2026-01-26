@@ -68,7 +68,7 @@ const AVERAGE_ENCODING_RATIO = 1.2297,
       91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91,
     ];
 
-export function encode(data: string) {
+export function encode(data: string | Uint8Array): string {
   let len = data.length,
       output = '', ebq = 0, en = 0, ev = 0, j = 0, byte = 0;
 

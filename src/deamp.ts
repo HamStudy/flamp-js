@@ -12,12 +12,9 @@
 
 import { Block } from './block';
 import { crc16 as crc16JS } from './crc16';
-import { LTypes, stringToDate, lzmaCompressedPrefix } from './amp';
-
-import  *  as lzma from './lzma';
+import { LTypes, stringToDate } from './amp';
 
 import * as base91 from './base91';
-import * as base64 from './base64';
 import { TypedEvent } from './TypedEvent';
 import { Compressor } from './compressor';
 
@@ -144,19 +141,31 @@ export class File {
       let endOfStart = content.indexOf(']') + 1;
       let tag = content.substring(0, endOfStart);
       content = content.substring(endOfStart, content.lastIndexOf('['));
-      switch(tag) {
+
+      let binaryString: string = '';
+      switch (tag) {
         case '[b64:start]':
-          content = base64.decode(content);
+          binaryString = atob(content);
           break;
         case '[b91:start]':
-          content = base91.decode(content);
+          binaryString = base91.decode(content);
           break;
       }
+      if (binaryString) {
+        const c = Compressor.getDecompressor(binaryString);
+        if (c) {
+          const decompressedContent = c.decompress(binaryString);
+          content = new TextDecoder().decode(decompressedContent);
+        } else {
+          const binArray = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            binArray[i] = binaryString.charCodeAt(i);
+          }
+          content = new TextDecoder().decode(binArray);
+        }
+      }
     }
-    let c = Compressor.getDecompressor(content);
-    if (c) {
-      content = c.decompress(content);
-    }
+
     if (content.length !== this.size) {
       console.error('File size is not correct', content.length, this.size);
       return null;

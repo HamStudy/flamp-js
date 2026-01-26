@@ -38,6 +38,15 @@ export function stringToDate(str: string): Date {
   return new Date(str.replace(MODIFIED_TIME_REGEX, '$1-$2-$3T$4:$5:$6'));
 }
 
+export function uint8ToBinaryString(bytes: Uint8Array): string {
+  let s = "";
+  const CHUNK = 0x8000; // 32768
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return s;
+}
+
 const unprintableRegex = /[^ -~\n\r]+/;
 function hasNotPrintable(c: string) : boolean {
   return unprintableRegex.test(c);
@@ -268,6 +277,17 @@ export class Amp {
     this.base = base;
   }
 
+  baseEncode(base: BaseEncode, data: Uint8Array): string {
+    switch (base) {
+      case BaseEncode.b64:
+        return `[b64:start]${btoa(uint8ToBinaryString(data))}[b64:end]`;
+      case BaseEncode.b91:
+        return `[b91:start]${base91.encode(data)}[b91:end]`;
+      default:
+        return assertUnreachable(base);
+    }
+  }
+
   quantizeMessage() {
     let actualBuffer = this.inputBuffer;
 
@@ -277,36 +297,31 @@ export class Amp {
       this.base = BaseEncode.b91;
     }
 
+    let baseApplied = false;
+
     // Apply compression if any
     if (this.compression === CompressionType.LZMA) {
       let c = Compressor.getCompressor(); // get the default compressor
       try {
-        let newBuffer = c.compress(actualBuffer);
-        if (newBuffer.length < actualBuffer.length - 200 && !this.forceCompress) {
+        const compressedBuffer = c.compress(actualBuffer);
+        const newBuffer = this.baseEncode(
+          this.base || BaseEncode.b91,
+          compressedBuffer,
+        );
+        if (newBuffer.length < actualBuffer.length - 200 || this.forceCompress) {
           // If compression doesn't save us at least 200 bytes it's not worth while
           actualBuffer = newBuffer;
+          baseApplied = true;
         }
       } catch(e) {
         console.error('Compression failed, continuing without compression', e);
       }
-      if (!this.base) {
-        // If we compreessed then we need to base encode it
-        this.base = BaseEncode.b91;
-      }
     }
 
     // Apply base64 or base91 encoding here
-    if (this.base) {
-      switch (this.base) {
-        case BaseEncode.b64:
-          actualBuffer = `[b64:start]${base64.encode(actualBuffer)}[b64:end]`;
-          break;
-        case BaseEncode.b91:
-          actualBuffer = `[b91:start]${base91.encode(actualBuffer)}[b91:end]`;
-          break;
-        default:
-          return assertUnreachable(this.base);
-      }
+    if (this.base && !baseApplied) {
+      actualBuffer = this.baseEncode(this.base, new TextEncoder().encode(actualBuffer));
+      baseApplied = true;
     }
 
     if (actualBuffer.length > this.inputBuffer.length

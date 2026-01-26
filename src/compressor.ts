@@ -4,8 +4,8 @@ import {
   decodeSync as lzmaDecode
 } from './lzma';
 
-type CompressFn = (str: string) => string;
-type DecompressFn = (str: string) => string;
+type CompressFn = (str: string) => Uint8Array;
+type DecompressFn = (str: string) => Uint8Array;
 
 interface CompressOption {
   prefix: string;
@@ -18,11 +18,21 @@ class CompressorHolder {
   cMap: {[prefix: string]: CompressOption} = {};
 
   constructor() {
-    const prefix = "\u0002LZMA";
+    const PREFIX_BYTES = new Uint8Array([
+      0x02,
+      ...[0x4c, 0x5a, 0x4d, 0x41], // LZMA
+    ]);
+    const prefix = String.fromCharCode(...PREFIX_BYTES);
     this.addCompressor({
       prefix,
-      compress: str => prefix + lzmaEncode(str, 1),
-      decompress: str => {
+      compress: (str) => {
+        const compressed = lzmaEncode(str, 1);
+        const out = new Uint8Array(PREFIX_BYTES.length + compressed.length);
+        out.set(PREFIX_BYTES, 0);
+        out.set(compressed, PREFIX_BYTES.length);
+        return out;
+      },
+      decompress: (str) => {
         if (str.startsWith(prefix)) {
           return lzmaDecode(str.substring(prefix.length));
         } else {
