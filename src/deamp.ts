@@ -350,7 +350,7 @@ export class Deamp {
           // Hey, we've found the end of the block tag; wonder what it is and if it is valid?
           let blockTagContent = this.inputBuffer.substring(1);
           let search = BlockTagRegex.exec(blockTagContent);
-          if (search && Object.values(LTypes).indexOf(search[1].toUpperCase()) > -1) {
+          if (search && Object.values(LTypes).indexOf(search[1].toUpperCase() as LTypes) > -1) {
             // Hey, this might actually be a real tag!
             this.parserData.tagname = search[1].toUpperCase() as LTypes;
             let dataLen = this.parserData.dataLen = parseInt(search[2], 10);
