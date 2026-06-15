@@ -1,10 +1,8 @@
+import { readFile } from 'fs/promises';
+import { resolve } from 'path';
+import { beforeAll, expect, test, vi } from 'vitest';
 import { Amp, CompressionType, BaseEncode } from './amp';
 import { Deamp } from './deamp';
-
-declare function require(m: string): any;
-const fs = require('fs').promises;
-const path = require('path');
-declare const __dirname: string;
 
 const files = [
   "Bids.csv",
@@ -17,11 +15,9 @@ const files = [
 
 const fileStrings: string[] = [];
 
-declare const Buffer: any;
-
 beforeAll(async () => {
   for (const f of files) {
-    const fileContents = await fs.readFile(path.resolve(__dirname, 'testData', f));
+    const fileContents = await readFile(resolve(__dirname, 'testData', f));
     fileStrings.push(fileContents.toString());
   }
 });
@@ -63,9 +59,9 @@ test("Simple file amp and deamp", () => {
   const fileAmpString = amp.toString(blocksToXmit);
 
   const deamp = new Deamp();
-  const onNewFileFn = jest.fn();
-  const onFileUpdateFn = jest.fn();
-  const onFileCompleteFn = jest.fn();
+  const onNewFileFn = vi.fn();
+  const onFileUpdateFn = vi.fn();
+  const onFileCompleteFn = vi.fn();
   deamp.newFileEvent.on(onNewFileFn);
   deamp.fileUpdateEvent.on(onFileUpdateFn);
   deamp.fileCompleteEvent.on(onFileCompleteFn);
@@ -144,9 +140,9 @@ test("Compressed base91 file amp and deamp", () => {
   const fileAmpString = amp.toString(blocksToXmit);
 
   const deamp = new Deamp();
-  const onNewFileFn = jest.fn();
-  const onFileUpdateFn = jest.fn();
-  const onFileCompleteFn = jest.fn();
+  const onNewFileFn = vi.fn();
+  const onFileUpdateFn = vi.fn();
+  const onFileCompleteFn = vi.fn();
   deamp.newFileEvent.on(onNewFileFn);
   deamp.fileUpdateEvent.on(onFileUpdateFn);
   deamp.fileCompleteEvent.on(onFileCompleteFn);
@@ -172,7 +168,7 @@ test("Compressed base91 file amp and deamp", () => {
   expect(outFile.getContent()).toEqual(testFile);
 });
 
-xtest("Large file amp uncompressed then deamp", () => {
+test.skip("Large file amp uncompressed then deamp", () => {
   const fileNo = 3;
   const curFile = fileStrings[fileNo]; // large file
   const blockSize = 64;
@@ -198,9 +194,9 @@ xtest("Large file amp uncompressed then deamp", () => {
   const fileAmpString = amp.toString(blocksToXmit);
 
   const deamp = new Deamp();
-  const onNewFileFn = jest.fn();
-  const onFileUpdateFn = jest.fn();
-  const onFileCompleteFn = jest.fn();
+  const onNewFileFn = vi.fn();
+  const onFileUpdateFn = vi.fn();
+  const onFileCompleteFn = vi.fn();
   deamp.newFileEvent.on(onNewFileFn);
   deamp.fileUpdateEvent.on(onFileUpdateFn);
   deamp.fileCompleteEvent.on(onFileCompleteFn);
@@ -224,7 +220,7 @@ xtest("Large file amp uncompressed then deamp", () => {
   expect(outFile.getContent()).toEqual(curFile);
 });
 
-xtest("Large file amp compressed then deamp", () => {
+test.skip("Large file amp compressed then deamp", () => {
   const fileNo = 3;
   const curFile = fileStrings[fileNo]; // large file
   const blockSize = 64;
@@ -251,9 +247,9 @@ xtest("Large file amp compressed then deamp", () => {
   const fileAmpString = amp.toString(blocksToXmit);
 
   const deamp = new Deamp();
-  const onNewFileFn = jest.fn();
-  const onFileUpdateFn = jest.fn();
-  const onFileCompleteFn = jest.fn();
+  const onNewFileFn = vi.fn();
+  const onFileUpdateFn = vi.fn();
+  const onFileCompleteFn = vi.fn();
   deamp.newFileEvent.on(onNewFileFn);
   deamp.fileUpdateEvent.on(onFileUpdateFn);
   deamp.fileCompleteEvent.on(onFileCompleteFn);

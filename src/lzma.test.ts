@@ -1,10 +1,7 @@
-
+import { readFile } from 'fs/promises';
+import { resolve } from 'path';
+import { beforeAll, expect, test } from 'vitest';
 import * as lzma from './lzma';
-
-declare function require(m: string): any;
-const fs = require('fs').promises;
-const path = require('path');
-declare const __dirname: string;
 
 const files = [
   "Bids.csv",
@@ -16,8 +13,6 @@ const files = [
 ];
 
 const fileStrings: string[] = [];
-
-declare const Buffer: any;
 
 beforeAll(async () => {
   for (const f of files) {

@@ -1,4 +1,4 @@
-
+import { expect, test } from 'vitest';
 import { crc16 } from './crc16';
 import { Amp } from './amp';
 

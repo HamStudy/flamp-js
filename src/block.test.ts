@@ -1,3 +1,4 @@
+import { expect, test } from 'vitest';
 import { Block } from './block';
 import { LTypes } from './amp';
 import { Deamp } from './deamp';

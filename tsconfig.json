@@ -21,10 +21,12 @@
       ],
     },
     "esModuleInterop": true,
-    "types": ["jest"],
     "experimentalDecorators": true,
   },
   "include": [
     "src/**/*",
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
   ]
 }

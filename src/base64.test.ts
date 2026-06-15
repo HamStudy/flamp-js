@@ -1,9 +1,8 @@
-
+import { readFile } from 'fs/promises';
+import { resolve } from 'path';
+import { beforeAll, expect, test } from 'vitest';
 import * as base64 from './base64';
 
-declare function require(m: string): any;
-const fs = require('fs').promises;
-const path = require('path');
 declare const __dirname: string;
 
 const files = [
@@ -17,8 +16,6 @@ const files = [
 
 const fileStrings: string[] = [];
 
-declare const Buffer: any;
-
 // Uses native node libraries to encode
 function nativeEncode(str: string) {
   return Buffer.from(str).toString('base64');
@@ -30,7 +27,7 @@ function nativeDecode(str: string) {
 
 beforeAll(async () => {
   for (const f of files) {
-    const fileContents = await fs.readFile(path.resolve(__dirname, 'testData', f));
+    const fileContents = await readFile(resolve(__dirname, 'testData', f));
     fileStrings.push(fileContents.toString());
   }
 });

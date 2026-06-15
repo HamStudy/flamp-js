@@ -10,7 +10,7 @@
     "build": "tsc -p . && cp src/*.js dist/",
     "clean": "rm -rf dist/",
     "prepublish": "tsc -p . && cp src/*.js dist/ && rm -rfv dist/*.test.*",
-    "test": "jest"
+    "test": "vitest run"
   },
   "repository": {
     "type": "git",
@@ -28,12 +28,11 @@
     "tslib": "^1.9.3"
   },
   "devDependencies": {
-    "@types/jest": "^24.0.13",
-    "jest": "^24.8.0",
+    "@types/node": "^25.9.3",
     "node-base91": "^0.3.4",
-    "ts-jest": "^24.0.2",
     "tslib": "^1.9.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   },
   "files": [
     "dist/"

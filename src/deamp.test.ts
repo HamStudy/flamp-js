@@ -1,4 +1,5 @@
-import { Deamp } from ".";
+import { expect, test } from 'vitest';
+import { Deamp } from "./index";
 
 const FileFromFLAMP = [
   "<PROG 18 C801>{5258}FLAMP 2.2.04",
