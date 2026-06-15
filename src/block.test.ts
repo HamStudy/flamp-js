@@ -1,12 +1,10 @@
-
-import {Block} from './block';
+import { Block } from './block';
 import { LTypes } from './amp';
-
 import { Deamp } from './deamp';
 
 test("Creating a block", () => {
   const testHash = 'ABEF'; // placeholder for the test
-  let block = new Block(LTypes.SIZE, "{ABEF}1045 17 64");
+  const block = new Block(LTypes.SIZE, "{ABEF}1045 17 64");
 
   expect(block.toString()).toEqual("<SIZE 16 7C74>{ABEF}1045 17 64");
 });
@@ -93,7 +91,7 @@ test("Parsing blocks", () => {
     expect(block.data).toEqual(srcData);
     expect(block.byteCount).toEqual(blockInfo.size);
     expect(block.blockNum).toEqual(blockInfo.num);
-  } 
+  }
 });
 
 // TODO: Add tests to verify that bad blocks are rejected!

@@ -1,37 +1,32 @@
-
-import {
-  Amp, CompressionType, BaseEncode
-} from './amp';
-
-import {
-  Deamp
-} from './deamp';
+import { Amp, CompressionType, BaseEncode } from './amp';
+import { Deamp } from './deamp';
 
 declare function require(m: string): any;
 const fs = require('fs').promises;
 const path = require('path');
 declare const __dirname: string;
 
-let files = [
-  "Bids.csv", 
-  "TitanicSurvival.csv", 
-  "chickweed.csv", 
-  "edcT.csv", 
-  "mecter.csv", 
-  "treering.csv", 
+const files = [
+  "Bids.csv",
+  "TitanicSurvival.csv",
+  "chickweed.csv",
+  "edcT.csv",
+  "mecter.csv",
+  "treering.csv",
 ];
 
-let fileStrings = [] as string[];
+const fileStrings: string[] = [];
 
 declare const Buffer: any;
 
 beforeAll(async () => {
-  for (let f of files) {
-    let fileContents = await fs.readFile(path.resolve(__dirname, 'testData', f));
+  for (const f of files) {
+    const fileContents = await fs.readFile(path.resolve(__dirname, 'testData', f));
     fileStrings.push(fileContents.toString());
   }
 });
-let testFile = `bib,time in,time out
+
+const testFile = `bib,time in,time out
 1,01:05,01:55
 2,01:05,01:55
 3,01:05,01:55
@@ -48,7 +43,7 @@ let testFile = `bib,time in,time out
 14,01:05,01:55`;
 
 test("Simple file amp and deamp", () => {
-  let amp = new Amp({
+  const amp = new Amp({
     blkSize: 64,
     compression: CompressionType.LZMA, // Should be ignored, the file is too small
     filename: "testFile.txt",
@@ -61,13 +56,13 @@ test("Simple file amp and deamp", () => {
 
   expect(amp).toBeTruthy();
 
-  let blockCount  = amp.getDataBlockCount();
-  let blocksToXmit = [...Array(blockCount).keys()].map(n=>n+1);
+  const blockCount = amp.getDataBlockCount();
+  const blocksToXmit = [...Array(blockCount).keys()].map(n => n + 1);
   blocksToXmit.sort(() => Math.random() - 0.5);
 
-  let fileAmpString = amp.toString(blocksToXmit);
+  const fileAmpString = amp.toString(blocksToXmit);
 
-  let deamp = new Deamp();
+  const deamp = new Deamp();
   const onNewFileFn = jest.fn();
   const onFileUpdateFn = jest.fn();
   const onFileCompleteFn = jest.fn();
@@ -76,7 +71,7 @@ test("Simple file amp and deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.hash;
+  const fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileUpdateFn).toHaveBeenCalledTimes(6);
@@ -90,7 +85,7 @@ test("Simple file amp and deamp", () => {
     hash: fileHash,
   });
 
-  let outFile = deamp.getFile(fileHash);
+  const outFile = deamp.getFile(fileHash);
 
   expect(outFile.getContent()).toEqual(testFile);
 });
@@ -127,7 +122,7 @@ test("Decodes a C++ FLAMP compressed base64 transmission", () => {
 });
 
 test("Compressed base91 file amp and deamp", () => {
-  let amp = new Amp({
+  const amp = new Amp({
     blkSize: 64,
     compression: CompressionType.LZMA, // Should be ignored, the file is too small
     forceCompress: true,
@@ -142,13 +137,13 @@ test("Compressed base91 file amp and deamp", () => {
 
   expect(amp).toBeTruthy();
 
-  let blockCount  = amp.getDataBlockCount();
-  let blocksToXmit = [...Array(blockCount).keys()].map(n=>n+1);
+  const blockCount = amp.getDataBlockCount();
+  const blocksToXmit = [...Array(blockCount).keys()].map(n => n + 1);
   blocksToXmit.sort(() => Math.random() - 0.5);
 
-  let fileAmpString = amp.toString(blocksToXmit);
+  const fileAmpString = amp.toString(blocksToXmit);
 
-  let deamp = new Deamp();
+  const deamp = new Deamp();
   const onNewFileFn = jest.fn();
   const onFileUpdateFn = jest.fn();
   const onFileCompleteFn = jest.fn();
@@ -157,7 +152,7 @@ test("Compressed base91 file amp and deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.hash;
+  const fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
@@ -172,17 +167,17 @@ test("Compressed base91 file amp and deamp", () => {
   });
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
 
-  let outFile = deamp.getFile(fileHash);
+  const outFile = deamp.getFile(fileHash);
 
   expect(outFile.getContent()).toEqual(testFile);
 });
 
 xtest("Large file amp uncompressed then deamp", () => {
-  let fileNo = 3;
-  let curFile = fileStrings[fileNo]; // large file
-  let blockSize = 64;
+  const fileNo = 3;
+  const curFile = fileStrings[fileNo]; // large file
+  const blockSize = 64;
 
-  let amp = new Amp({
+  const amp = new Amp({
     blkSize: blockSize,
     compression: false, // Should be ignored, the file is too small
     filename: files[fileNo],
@@ -194,15 +189,15 @@ xtest("Large file amp uncompressed then deamp", () => {
     base: BaseEncode.b91
   });
 
-  let blockCount  = amp.getDataBlockCount();
+  const blockCount = amp.getDataBlockCount();
   expect(blockCount).toBe(Math.ceil(curFile.length / blockSize));
-  let blocksToXmit = [...Array(blockCount).keys()].map(n=>n+1);
+  const blocksToXmit = [...Array(blockCount).keys()].map(n => n + 1);
   // shuffle the block order to make sure out-of-order receive works
   blocksToXmit.sort(() => Math.random() - 0.5);
 
-  let fileAmpString = amp.toString(blocksToXmit);
+  const fileAmpString = amp.toString(blocksToXmit);
 
-  let deamp = new Deamp();
+  const deamp = new Deamp();
   const onNewFileFn = jest.fn();
   const onFileUpdateFn = jest.fn();
   const onFileCompleteFn = jest.fn();
@@ -211,7 +206,7 @@ xtest("Large file amp uncompressed then deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.hash;
+  const fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
@@ -224,17 +219,17 @@ xtest("Large file amp uncompressed then deamp", () => {
     hash: fileHash,
   });
 
-  let outFile = deamp.getFile(fileHash);
+  const outFile = deamp.getFile(fileHash);
 
   expect(outFile.getContent()).toEqual(curFile);
 });
 
 xtest("Large file amp compressed then deamp", () => {
-  let fileNo = 3;
-  let curFile = fileStrings[fileNo]; // large file
-  let blockSize = 64;
+  const fileNo = 3;
+  const curFile = fileStrings[fileNo]; // large file
+  const blockSize = 64;
 
-  let amp = new Amp({
+  const amp = new Amp({
     blkSize: blockSize,
     compression: CompressionType.LZMA, // Should be ignored, the file is too small
     filename: files[fileNo],
@@ -246,16 +241,16 @@ xtest("Large file amp compressed then deamp", () => {
     base: BaseEncode.b64
   });
 
-  let blockCount  = amp.getDataBlockCount();
+  const blockCount = amp.getDataBlockCount();
   // Without compression this is how big it would be
   expect(blockCount).toBeLessThan(Math.ceil(curFile.length / blockSize));
-  let blocksToXmit = [...Array(blockCount).keys()].map(n=>n+1);
+  const blocksToXmit = [...Array(blockCount).keys()].map(n => n + 1);
   // shuffle the block order to make sure out-of-order receive works
   blocksToXmit.sort(() => Math.random() - 0.5);
 
-  let fileAmpString = amp.toString(blocksToXmit);
+  const fileAmpString = amp.toString(blocksToXmit);
 
-  let deamp = new Deamp();
+  const deamp = new Deamp();
   const onNewFileFn = jest.fn();
   const onFileUpdateFn = jest.fn();
   const onFileCompleteFn = jest.fn();
@@ -264,7 +259,7 @@ xtest("Large file amp compressed then deamp", () => {
   deamp.fileCompleteEvent.on(onFileCompleteFn);
 
   deamp.ingestString(fileAmpString);
-  let fileHash = amp.hash;
+  const fileHash = amp.hash;
 
   expect(onNewFileFn).toHaveBeenCalledTimes(1);
   expect(onFileCompleteFn).toHaveBeenCalledTimes(1);
@@ -277,7 +272,7 @@ xtest("Large file amp compressed then deamp", () => {
     hash: fileHash,
   });
 
-  let outFile = deamp.getFile(fileHash);
+  const outFile = deamp.getFile(fileHash);
 
   expect(outFile.getContent()).toEqual(curFile);
 });
