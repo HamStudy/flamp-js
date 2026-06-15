@@ -28,11 +28,11 @@ beforeAll(async () => {
 
 test("Encode and decode a simple string", () => {
   let str = "The quick brown fox jumped over the lazy dog and then got eaten for his trouble.";
-  expect(lzma.decodeSync(lzma.encodeSync(str))).toEqual(str);
+  expect(new TextDecoder().decode(lzma.decodeSync(lzma.encodeSync(str)))).toEqual(str);
 });
 
 test("Encode and decode of large files should work", () => {
   for (let fStr of fileStrings) {
-    expect(lzma.decodeSync(lzma.encodeSync(fStr))).toEqual(fStr);
+    expect(new TextDecoder().decode(lzma.decodeSync(lzma.encodeSync(fStr)))).toEqual(fStr);
   }
 });
