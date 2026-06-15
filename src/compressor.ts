@@ -19,7 +19,7 @@ class CompressorHolder {
 
   constructor() {
     const PREFIX_BYTES = new Uint8Array([
-      0x02,
+      0x01,
       ...[0x4c, 0x5a, 0x4d, 0x41], // LZMA
     ]);
     const prefix = String.fromCharCode(...PREFIX_BYTES);
