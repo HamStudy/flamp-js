@@ -44,7 +44,7 @@ class CompressorHolder {
 
   addCompressor(compressor: CompressOption) {
     this.default = compressor.prefix;
-    this.cMap[compressor.prefix]  = compressor;
+    this.cMap[compressor.prefix] = compressor;
   }
 
   getCompressor(prefix: string = this.default) {
@@ -62,3 +62,4 @@ class CompressorHolder {
 }
 
 export const Compressor = new CompressorHolder();
+export const LZMA_PREFIX = Compressor.getCompressor().prefix;

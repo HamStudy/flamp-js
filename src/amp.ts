@@ -11,13 +11,13 @@
 import { Block } from './block';
 import { crc16 } from './crc16';
 
-import { Compressor }  from './compressor';
+import { Compressor, LZMA_PREFIX }  from './compressor';
 
 import * as base91 from './base91';
 import * as base64 from './base64';
 import * as lzma from './lzma';
 
-export const lzmaCompressedPrefix = '\u0001LZMA';
+export const lzmaCompressedPrefix = LZMA_PREFIX;
 export const MODIFIED_TIME_REGEX = /(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/;
 /**
  * Takes a date and returns a string in format YYYYMMDDhhmmss
