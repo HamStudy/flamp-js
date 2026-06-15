@@ -33,7 +33,7 @@
     "node-base91": "^0.3.4",
     "ts-jest": "^24.0.2",
     "tslib": "^1.9.3",
-    "typescript": "~3.2.2"
+    "typescript": "^6.0.3"
   },
   "files": [
     "dist/"

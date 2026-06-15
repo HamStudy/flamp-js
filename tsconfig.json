@@ -1,6 +1,7 @@
 {
   "compileOnSave": true,
   "compilerOptions": {
+    "rootDir": "src",
     "outDir": "dist",
     "target": "esnext",
     "lib": ["esnext", "dom"],
@@ -8,6 +9,7 @@
     "strict": true,
     "declaration": true,
     "downlevelIteration": true,
+    "ignoreDeprecations": "6.0",
     "importHelpers": true,
     "emitDecoratorMetadata": true,
     "noImplicitAny": true,
@@ -19,6 +21,7 @@
       ],
     },
     "esModuleInterop": true,
+    "types": ["jest"],
     "experimentalDecorators": true,
   },
   "include": [
