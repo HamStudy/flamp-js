@@ -5,7 +5,7 @@ import {
 } from './lzma';
 
 type CompressFn = (str: string) => Uint8Array;
-type DecompressFn = (str: string) => Uint8Array;
+type DecompressFn = (str: string) => string;
 
 interface CompressOption {
   prefix: string;

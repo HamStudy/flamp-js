@@ -154,8 +154,7 @@ export class File {
       if (binaryString) {
         const c = Compressor.getDecompressor(binaryString);
         if (c) {
-          const decompressedContent = c.decompress(binaryString);
-          content = new TextDecoder().decode(decompressedContent);
+          content = c.decompress(binaryString);
         } else {
           const binArray = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
